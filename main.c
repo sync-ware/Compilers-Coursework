@@ -94,6 +94,20 @@ extern NODE* yyparse(void);
 extern NODE* ans;
 extern void init_symbtable(void);
 
+int interpret(NODE *tree)
+{
+  switch(tree->type){
+    case 68:
+      printf("Start detected\n");
+      
+      return 0;
+    break;
+    default:
+    break;
+  }
+}
+
+
 int main(int argc, char** argv)
 {
     NODE* tree;
@@ -104,5 +118,6 @@ int main(int argc, char** argv)
     tree = ans;
     printf("parse finished with %p\n", tree);
     print_tree(tree);
+    interpret(tree);
     return 0;
 }
