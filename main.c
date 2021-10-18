@@ -97,27 +97,72 @@ extern void init_symbtable(void);
 int interpret(NODE *tree)
 {
   switch(tree->type){
-    case 68:
-      printf("Start detected\n");
-      
-      return 0;
+    case 68: //D
+      printf("Begin Interpretation.\n");
+      return interpret(tree->right);
     break;
+    case RETURN:
+      printf("Return found.\n");
+      return interpret(tree->left); 
+    break;
+    case LEAF:
+      printf("Leaf found.\n");
+      return interpret(tree->left);
+    break;
+    case 43: //+
+      printf("Plus found.\n");
+      return interpret(tree->left) + interpret(tree->right);
+      break;
+    case 45: //-
+      printf("Minus found.\n");
+      return interpret(tree->left) - interpret(tree->right);
+      break;
+    case 47: //(/)
+      printf("Divide found.\n");
+      return interpret(tree->left) / interpret(tree->right);
+      break;
+    case 42: //(*)
+      printf("Multiplication found.\n");
+      return interpret(tree->left) * interpret(tree->right);
+      break;
+    case 37: //%
+      printf("Modulo found.\n");
+      return interpret(tree->left) % interpret(tree->right);
+      break;
+    case CONSTANT:;
+      TOKEN *t = (TOKEN *)tree;
+      printf("Constant found: %d.\n",t->value);
+      return t->value;
     default:
     break;
   }
 }
 
+int findArg(int argc, char** argv, char* elem)
+{
+  for(int x = 1; x < argc; x++) {
+    if (strcmp(argv[x], elem) == 0) {
+      return 1;
+    }
+  }
+  return 0;
+}
 
 int main(int argc, char** argv)
 {
     NODE* tree;
-    if (argc>1 && strcmp(argv[1],"-d")==0) yydebug = 1;
+    if (findArg(argc, argv, "-d")) yydebug = 1;
     init_symbtable();
     printf("--C COMPILER\n");
     yyparse();
     tree = ans;
     printf("parse finished with %p\n", tree);
     print_tree(tree);
-    interpret(tree);
+    if (findArg(argc, argv, "-i"))
+    {
+      int status = interpret(tree);
+      printf("Program exited with status code %d.\n", status);
+      
+    }
     return 0;
 }

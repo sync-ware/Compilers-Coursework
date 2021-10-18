@@ -5,3 +5,4 @@ lex.yy.o
 main.o
 nodes.o
 symbol_table.o
+.vscode
