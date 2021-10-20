@@ -73,7 +73,7 @@ TOKEN* src1;
 TOKEN* src2;
 TOKEN* dst;
 struct tac* next;
-} TAC ;
+} TAC;
 
 TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst)
 {

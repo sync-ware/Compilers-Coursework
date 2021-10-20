@@ -3,6 +3,7 @@
 #include "nodes.h"
 #include "C.tab.h"
 #include <string.h>
+#include <stdlib.h>
 
 char *named(int t)
 {
@@ -94,7 +95,173 @@ extern NODE* yyparse(void);
 extern NODE* ans;
 extern void init_symbtable(void);
 
-int interpret(NODE *tree)
+enum tac_op
+  {
+   tac_plus = 1
+  };
+
+typedef struct tac {
+int op ;
+TOKEN* src1;
+TOKEN* src2;
+TOKEN* dst;
+struct tac* next;
+} TAC;
+
+int availableAddresses = 8;
+#define MAX_ADDRESSES 8
+
+
+char int_to_char(int x)
+{
+  char ret = (x + 48);
+  return ret;
+}
+
+TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst)
+{
+  TAC* ans = (TAC*)malloc(sizeof(TAC));
+  if (ans==NULL) {
+    printf("Error! memory not allocated.");
+    exit(0);
+  }
+  ans->op = op;
+  char address_num;
+  char address[4] = "$t";
+  if (availableAddresses > 0){
+    address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
+    strcpy(src1->lexeme, address);
+    strncat(src1->lexeme, &address_num, 1);
+    availableAddresses--;
+    address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
+    strcpy(src2->lexeme, address);
+    strncat(src2->lexeme, &address_num, 1);
+    availableAddresses--;
+  }
+  ans->src1 = src1;
+  ans->src2 = src2;
+  if (dst->lexeme == NULL){
+    if (availableAddresses > 0){
+      address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
+      strcpy(dst->lexeme, address);
+      strncat(dst->lexeme, &address_num, 1);
+      availableAddresses--;
+    }
+  }
+  ans->dst = dst;
+}
+
+
+TAC* mmc_icg(NODE* ast)
+{
+  switch (ast->type) {
+    case 68: //D
+      printf("Begin Interpretation.\n");
+      return mmc_icg(ast->right);
+    break;
+    case RETURN:
+      printf("Return found.\n");
+      return mmc_icg(ast->left); 
+    break;
+    case LEAF:
+      printf("Leaf found.\n");
+      return mmc_icg(ast->left);
+    break;
+    case 43: //+
+      printf("Plus found.\n");
+      return new_tac(tac_plus, (TOKEN*) ast->left, (TOKEN*) ast->right, (TOKEN*) ast->left)
+      break;
+    // case 45: //-
+    //   printf("Minus found.\n");
+    //   return minusValues(interpret(ast->left), interpret(ast->right));
+    //   break;
+    // case 47: //(/)
+    //   printf("Divide found.\n");
+    //   return divideValues(interpret(ast->left), interpret(ast->right));
+    //   break;
+    // case 42: //(*)
+    //   printf("Multiplication found.\n");
+    //   return multiplyValues(interpret(ast->left), interpret(ast->right));
+    //   break;
+    // case 37: //%
+    //   printf("Modulo found.\n");
+    //   return moduloValues(interpret(ast->left), interpret(ast->right));
+    //   break;
+    // case CONSTANT:;
+    //   TOKEN *t = (TOKEN *)ast;
+    //   printf("Constant found: %d.\n",t->value);
+    //   VALUE* value = (VALUE*)malloc(sizeof(VALUE));;
+    //   value->type = mmcINT;
+    //   value->v.integer = t->value;
+    //   return value;
+
+    // break;
+    default:
+    printf("unknown type code %d (%p) in mmc_icg\n",ast->type,ast);
+    return NULL;
+  }
+};
+
+char* tac_ops[] = {"NOOP","ADD"};
+
+void mmc_print_ic(TAC* i)
+{
+  for(;i!=NULL;i=i->next)
+    printf("%s %s, %s, %s\n",
+	   tac_ops[i->op], // need to range check!
+	   i->src1->lexeme,
+	   i->src2->lexeme,
+	   i->dst->lexeme);
+}
+
+typedef struct value {
+  int          type;
+  union {
+    int integer;
+    int boolean; // will need this soon
+    char* string;
+    void* function;
+  } v;
+} VALUE;
+
+enum valuetype
+  {
+   mmcINT = 1,
+   mmcBOOL = 2,
+   mmcSTRING = 3
+};
+
+VALUE* addValues(VALUE* leftValue, VALUE* rightValue){
+  leftValue->v.integer = leftValue->v.integer + rightValue->v.integer;
+  free(rightValue);
+  return leftValue;
+}
+
+VALUE* minusValues(VALUE* leftValue, VALUE* rightValue){
+  leftValue->v.integer = leftValue->v.integer - rightValue->v.integer;
+  free(rightValue);
+  return leftValue;
+}
+
+VALUE* divideValues(VALUE* leftValue, VALUE* rightValue){
+  leftValue->v.integer = leftValue->v.integer / rightValue->v.integer;
+  free(rightValue);
+  return leftValue;
+}
+
+VALUE* multiplyValues(VALUE* leftValue, VALUE* rightValue){
+  leftValue->v.integer = leftValue->v.integer * rightValue->v.integer;
+  free(rightValue);
+  return leftValue;
+}
+
+VALUE* moduloValues(VALUE* leftValue, VALUE* rightValue){
+  leftValue->v.integer = leftValue->v.integer % rightValue->v.integer;
+  free(rightValue);
+  return leftValue;
+}
+
+VALUE* interpret(NODE *tree)
 {
   switch(tree->type){
     case 68: //D
@@ -111,28 +278,31 @@ int interpret(NODE *tree)
     break;
     case 43: //+
       printf("Plus found.\n");
-      return interpret(tree->left) + interpret(tree->right);
+      return addValues(interpret(tree->left), interpret(tree->right));
       break;
     case 45: //-
       printf("Minus found.\n");
-      return interpret(tree->left) - interpret(tree->right);
+      return minusValues(interpret(tree->left), interpret(tree->right));
       break;
     case 47: //(/)
       printf("Divide found.\n");
-      return interpret(tree->left) / interpret(tree->right);
+      return divideValues(interpret(tree->left), interpret(tree->right));
       break;
     case 42: //(*)
       printf("Multiplication found.\n");
-      return interpret(tree->left) * interpret(tree->right);
+      return multiplyValues(interpret(tree->left), interpret(tree->right));
       break;
     case 37: //%
       printf("Modulo found.\n");
-      return interpret(tree->left) % interpret(tree->right);
+      return moduloValues(interpret(tree->left), interpret(tree->right));
       break;
     case CONSTANT:;
       TOKEN *t = (TOKEN *)tree;
       printf("Constant found: %d.\n",t->value);
-      return t->value;
+      VALUE* value = (VALUE*)malloc(sizeof(VALUE));;
+      value->type = mmcINT;
+      value->v.integer = t->value;
+      return value;
     default:
     break;
   }
@@ -160,8 +330,14 @@ int main(int argc, char** argv)
     print_tree(tree);
     if (findArg(argc, argv, "-i"))
     {
-      int status = interpret(tree);
-      printf("Program exited with status code %d.\n", status);
+      VALUE* status = interpret(tree);
+      printf("Program exited with status code %d.\n", status->v.integer);
+      
+    }
+    if (findArg(argc, argv, "-m"))
+    {
+      TAC* tac = mmc_icg(tree);
+      mmc_print_ic(tac);
       
     }
     return 0;
