@@ -152,7 +152,7 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst)
 }
 
 
-TAC* mmc_icg(NODE* ast)
+TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need to jump to. TAC Codes will come out in reverse order.
 {
   switch (ast->type) {
     case 68: //D
@@ -169,7 +169,8 @@ TAC* mmc_icg(NODE* ast)
     break;
     case 43: //+
       printf("Plus found.\n");
-      return new_tac(tac_plus, (TOKEN*) ast->left, (TOKEN*) ast->right, (TOKEN*) ast->left)
+      TAC* tac = new_tac(tac_plus, (TOKEN*) ast->left, (TOKEN*) ast->right, (TOKEN*) ast->left);
+      return tac;
       break;
     // case 45: //-
     //   printf("Minus found.\n");
