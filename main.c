@@ -97,7 +97,8 @@ extern void init_symbtable(void);
 
 enum tac_op
   {
-   tac_plus = 1
+   tac_plus = 1,
+   tac_load = 2
   };
 
 typedef struct tac {
@@ -118,7 +119,8 @@ char int_to_char(int x)
   return ret;
 }
 
-TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst)
+// Double Operand
+TAC* new_tac_do(int op, TOKEN* src1, TOKEN* dst)
 {
   TAC* ans = (TAC*)malloc(sizeof(TAC));
   if (ans==NULL) {
@@ -128,18 +130,15 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst)
   ans->op = op;
   char address_num;
   char address[4] = "$t";
-  if (availableAddresses > 0){
-    address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
-    strcpy(src1->lexeme, address);
-    strncat(src1->lexeme, &address_num, 1);
-    availableAddresses--;
-    address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
-    strcpy(src2->lexeme, address);
-    strncat(src2->lexeme, &address_num, 1);
-    availableAddresses--;
-  }
+
+  // if (availableAddresses > 0){ // What happens when we have no addresses? TODO: Account for this
+  //   address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
+  //   strcpy(src1->lexeme, address);
+  //   strncat(src1->lexeme, &address_num, 1);
+  //   availableAddresses--;
+  // }
   ans->src1 = src1;
-  ans->src2 = src2;
+
   if (dst->lexeme == NULL){
     if (availableAddresses > 0){
       address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
@@ -151,12 +150,109 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst)
   ans->dst = dst;
 }
 
+TAC* new_tac_load(int op, TOKEN* src1)
+{
+  TAC* ans = (TAC*)malloc(sizeof(TAC));
+  if (ans==NULL) {
+    printf("Error! memory not allocated.");
+    exit(0);
+  }
+  ans->op = op;
+  ans->src1 = src1;
+  char address_num;
+  char address[4] = "$t";
+  
+  if (availableAddresses > 0){
+    
+    address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
+    src1->lexeme = (char*) malloc(4);
+    strcpy(src1->lexeme, address);
+    strncat(src1->lexeme, &address_num, 1);
+    availableAddresses--;
+    
+  }
+
+  return ans;
+}
+
+TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst)
+{
+  
+  TAC* ans = (TAC*)malloc(sizeof(TAC));
+  
+  if (ans==NULL) {
+    printf("Error! memory not allocated.");
+    exit(0);
+  }
+  ans->op = op;
+  char address_num;
+  char address[4] = "$t";
+  
+  if (availableAddresses > 0){
+    
+    address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
+    char add1[4];
+    char add2[4];
+    strcpy(add1, address);
+    strncat(add1, &address_num, 1);
+    src1->lexeme = add1;
+    availableAddresses--;
+    address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
+
+    strcpy(add2, address);
+    strncat(add2, &address_num, 1);
+    src2->lexeme = add2;
+    availableAddresses--;
+  }
+  
+  ans->src1 = src1;
+  ans->src2 = src2;
+  if (dst->lexeme == NULL){
+    if (availableAddresses > 0){
+      address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
+      strcpy(dst->lexeme, address);
+      strncat(dst->lexeme, &address_num, 1);
+      availableAddresses--;
+    }
+  }
+  
+  ans->dst = dst;
+  
+  TAC* load_first = new_tac_load(tac_load, src1);
+  TAC* load_second = new_tac_load(tac_load, src2);
+  load_first->next = load_second;
+  load_second->next = ans;
+  return load_first;
+}
+
+TAC* new_tac1(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
+  TAC* ans = (TAC*)malloc(sizeof(TAC));
+  if (ans==NULL) {
+    printf("Error! memory not allocated.");
+    exit(0);
+  }
+  ans->op = op;
+  ans->src1 = src1;
+  ans->src2 = src2;
+  ans->dst = dst;
+  return ans;
+}
+
+TOKEN* process_src(NODE* node)
+{
+  if (node->type == LEAF) {
+    printf("Leaf found.\n");
+    return (TOKEN *) node->left;
+  } else {
+    
+  }
+}
 
 TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need to jump to. TAC Codes will come out in reverse order.
 {
   switch (ast->type) {
     case 68: //D
-      printf("Begin Interpretation.\n");
+      printf("Begin TAC Construction.\n");
       return mmc_icg(ast->right);
     break;
     case RETURN:
@@ -169,9 +265,24 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
     break;
     case 43: //+
       printf("Plus found.\n");
-      TAC* tac = new_tac(tac_plus, (TOKEN*) ast->left, (TOKEN*) ast->right, (TOKEN*) ast->left);
-      return tac;
-      break;
+      // TOKEN* src1 = process_src(ast->left);
+      // TOKEN* src2 = process_src(ast->right);
+      // TAC* tac = new_tac(tac_plus, src1, src2, src1);
+      // return tac;
+
+      TAC* left = mmc_icg(ast->left);
+      TAC* right = mmc_icg(ast->right);
+      TAC* tac = new_tac1(tac_plus, left->src1, right->src1, left->src1);
+      left->next = right;
+      right->next = tac;
+      return left;
+    break;
+    case CONSTANT:
+      
+      printf("Constant found.\n");
+      TAC* load = new_tac_load(tac_load, (TOKEN *) ast);
+      return load;
+    break;
     // case 45: //-
     //   printf("Minus found.\n");
     //   return minusValues(interpret(ast->left), interpret(ast->right));
@@ -203,16 +314,23 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
   }
 };
 
-char* tac_ops[] = {"NOOP","ADD"};
+char* tac_ops[] = {"NOOP","ADD", "LOAD"};
 
 void mmc_print_ic(TAC* i)
 {
   for(;i!=NULL;i=i->next)
+    if (i->op == tac_plus){
     printf("%s %s, %s, %s\n",
 	   tac_ops[i->op], // need to range check!
 	   i->src1->lexeme,
 	   i->src2->lexeme,
 	   i->dst->lexeme);
+    } else if (i->op == tac_load){
+      printf("%s %s, %d\n",
+      tac_ops[i->op],
+      i->src1->lexeme,
+      i->src1->value);
+    }
 }
 
 typedef struct value {
