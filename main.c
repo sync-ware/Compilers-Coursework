@@ -101,6 +101,8 @@ enum tac_op
    tac_load = 2
   };
 
+char* tac_ops[] = {"NOOP","ADD", "LOAD"};
+
 typedef struct tac {
 int op ;
 TOKEN* src1;
@@ -150,6 +152,27 @@ TAC* new_tac_do(int op, TOKEN* src1, TOKEN* dst)
   ans->dst = dst;
 }
 
+TOKEN* copy_token(TOKEN* src){
+  if (src != NULL){
+    TOKEN* copy = (TOKEN*)malloc(sizeof(TOKEN));
+    
+    copy->lexeme = (char*)malloc(4*sizeof(char));
+    
+    if (src->lexeme != NULL){
+      strcpy(copy->lexeme, src->lexeme);
+      
+    }
+    
+    copy->next = src->next;
+    copy->type = src->type;
+    copy->value = src->value;
+    return copy;
+  }
+  else {
+    return NULL;
+  }
+}
+
 TAC* new_tac_load(int op, TOKEN* src1)
 {
   TAC* ans = (TAC*)malloc(sizeof(TAC));
@@ -159,13 +182,13 @@ TAC* new_tac_load(int op, TOKEN* src1)
   }
   ans->op = op;
   ans->src1 = src1;
+  src1->lexeme = (char*)malloc(4*sizeof(char));
   char address_num;
   char address[4] = "$t";
   
   if (availableAddresses > 0){
     
     address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
-    src1->lexeme = (char*) malloc(4);
     strcpy(src1->lexeme, address);
     strncat(src1->lexeme, &address_num, 1);
     availableAddresses--;
@@ -248,7 +271,47 @@ TOKEN* process_src(NODE* node)
   }
 }
 
-TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need to jump to. TAC Codes will come out in reverse order.
+TAC* copy_tac(TAC* src)
+{
+  
+  TAC* copy = (TAC*)malloc(sizeof(TAC));
+  copy->op = src->op;
+  if (src->next != NULL){
+    copy->next = copy_tac(src->next);
+  }
+  
+  copy->src1 = copy_token(src->src1);
+  copy->src2 = copy_token(src->src2);
+  copy->dst = copy_token(src->dst);
+  return copy;
+}
+
+void mmc_print_ic(TAC* i)
+{
+  for(;i!=NULL;i=i->next)
+    if (i->op == tac_plus){
+    printf("%s %s, %s, %s\n",
+	   tac_ops[i->op], // need to range check!
+	   i->src1->lexeme,
+	   i->src2->lexeme,
+	   i->dst->lexeme);
+    } else if (i->op == tac_load){
+      printf("%s %s, %d\n",
+      tac_ops[i->op],
+      i->src1->lexeme,
+      i->src1->value);
+    }
+}
+
+void attach_tac(TAC* left, TAC* right){
+  if (left->next == NULL) {
+    left->next = right;
+  } else {
+    attach_tac(left->next, right);
+  }
+}
+
+TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need to jump to.
 {
   switch (ast->type) {
     case 68: //D
@@ -265,23 +328,21 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
     break;
     case 43: //+
       printf("Plus found.\n");
-      // TOKEN* src1 = process_src(ast->left);
-      // TOKEN* src2 = process_src(ast->right);
-      // TAC* tac = new_tac(tac_plus, src1, src2, src1);
-      // return tac;
-
       TAC* left = mmc_icg(ast->left);
+
       TAC* right = mmc_icg(ast->right);
-      TAC* tac = new_tac1(tac_plus, left->src1, right->src1, left->src1);
-      left->next = right;
-      right->next = tac;
+
+      TAC* add = new_tac1(tac_plus, left->src1, right->src1, left->src1);
+
+      // We must iterate through to the end of the left tacs.
+      attach_tac(left, right);
+      right->next = add;
       return left;
     break;
     case CONSTANT:
       
       printf("Constant found.\n");
-      TAC* load = new_tac_load(tac_load, (TOKEN *) ast);
-      return load;
+      return new_tac_load(tac_load, (TOKEN *) ast);
     break;
     // case 45: //-
     //   printf("Minus found.\n");
@@ -313,25 +374,6 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
     return NULL;
   }
 };
-
-char* tac_ops[] = {"NOOP","ADD", "LOAD"};
-
-void mmc_print_ic(TAC* i)
-{
-  for(;i!=NULL;i=i->next)
-    if (i->op == tac_plus){
-    printf("%s %s, %s, %s\n",
-	   tac_ops[i->op], // need to range check!
-	   i->src1->lexeme,
-	   i->src2->lexeme,
-	   i->dst->lexeme);
-    } else if (i->op == tac_load){
-      printf("%s %s, %d\n",
-      tac_ops[i->op],
-      i->src1->lexeme,
-      i->src1->value);
-    }
-}
 
 typedef struct value {
   int          type;
