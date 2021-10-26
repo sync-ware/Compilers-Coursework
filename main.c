@@ -121,58 +121,6 @@ char int_to_char(int x)
   return ret;
 }
 
-// Double Operand
-TAC* new_tac_do(int op, TOKEN* src1, TOKEN* dst)
-{
-  TAC* ans = (TAC*)malloc(sizeof(TAC));
-  if (ans==NULL) {
-    printf("Error! memory not allocated.");
-    exit(0);
-  }
-  ans->op = op;
-  char address_num;
-  char address[4] = "$t";
-
-  // if (availableAddresses > 0){ // What happens when we have no addresses? TODO: Account for this
-  //   address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
-  //   strcpy(src1->lexeme, address);
-  //   strncat(src1->lexeme, &address_num, 1);
-  //   availableAddresses--;
-  // }
-  ans->src1 = src1;
-
-  if (dst->lexeme == NULL){
-    if (availableAddresses > 0){
-      address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
-      strcpy(dst->lexeme, address);
-      strncat(dst->lexeme, &address_num, 1);
-      availableAddresses--;
-    }
-  }
-  ans->dst = dst;
-}
-
-TOKEN* copy_token(TOKEN* src){
-  if (src != NULL){
-    TOKEN* copy = (TOKEN*)malloc(sizeof(TOKEN));
-    
-    copy->lexeme = (char*)malloc(4*sizeof(char));
-    
-    if (src->lexeme != NULL){
-      strcpy(copy->lexeme, src->lexeme);
-      
-    }
-    
-    copy->next = src->next;
-    copy->type = src->type;
-    copy->value = src->value;
-    return copy;
-  }
-  else {
-    return NULL;
-  }
-}
-
 TAC* new_tac_load(int op, TOKEN* src1)
 {
   TAC* ans = (TAC*)malloc(sizeof(TAC));
@@ -198,57 +146,7 @@ TAC* new_tac_load(int op, TOKEN* src1)
   return ans;
 }
 
-TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst)
-{
-  
-  TAC* ans = (TAC*)malloc(sizeof(TAC));
-  
-  if (ans==NULL) {
-    printf("Error! memory not allocated.");
-    exit(0);
-  }
-  ans->op = op;
-  char address_num;
-  char address[4] = "$t";
-  
-  if (availableAddresses > 0){
-    
-    address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
-    char add1[4];
-    char add2[4];
-    strcpy(add1, address);
-    strncat(add1, &address_num, 1);
-    src1->lexeme = add1;
-    availableAddresses--;
-    address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
-
-    strcpy(add2, address);
-    strncat(add2, &address_num, 1);
-    src2->lexeme = add2;
-    availableAddresses--;
-  }
-  
-  ans->src1 = src1;
-  ans->src2 = src2;
-  if (dst->lexeme == NULL){
-    if (availableAddresses > 0){
-      address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
-      strcpy(dst->lexeme, address);
-      strncat(dst->lexeme, &address_num, 1);
-      availableAddresses--;
-    }
-  }
-  
-  ans->dst = dst;
-  
-  TAC* load_first = new_tac_load(tac_load, src1);
-  TAC* load_second = new_tac_load(tac_load, src2);
-  load_first->next = load_second;
-  load_second->next = ans;
-  return load_first;
-}
-
-TAC* new_tac1(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
+TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
   TAC* ans = (TAC*)malloc(sizeof(TAC));
   if (ans==NULL) {
     printf("Error! memory not allocated.");
@@ -259,31 +157,6 @@ TAC* new_tac1(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
   ans->src2 = src2;
   ans->dst = dst;
   return ans;
-}
-
-TOKEN* process_src(NODE* node)
-{
-  if (node->type == LEAF) {
-    printf("Leaf found.\n");
-    return (TOKEN *) node->left;
-  } else {
-    
-  }
-}
-
-TAC* copy_tac(TAC* src)
-{
-  
-  TAC* copy = (TAC*)malloc(sizeof(TAC));
-  copy->op = src->op;
-  if (src->next != NULL){
-    copy->next = copy_tac(src->next);
-  }
-  
-  copy->src1 = copy_token(src->src1);
-  copy->src2 = copy_token(src->src2);
-  copy->dst = copy_token(src->dst);
-  return copy;
 }
 
 void mmc_print_ic(TAC* i)
@@ -332,7 +205,7 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 
       TAC* right = mmc_icg(ast->right);
 
-      TAC* add = new_tac1(tac_plus, left->src1, right->src1, left->src1);
+      TAC* add = new_tac(tac_plus, left->src1, right->src1, left->src1);
 
       // We must iterate through to the end of the left tacs.
       attach_tac(left, right);
