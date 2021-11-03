@@ -145,14 +145,15 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 		case tac_load:
 			ans->dst = dst;
 			dst->lexeme = (char*)malloc(4*sizeof(char));
-			char address_num;
+			char address_num[8];
 			char address[4] = "$t";
 	
 			if (availableAddresses > 0){
 			
-				address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
+				//address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
+				sprintf(address_num, "%d", MAX_ADDRESSES-availableAddresses);
 				strcpy(dst->lexeme, address);
-				strncat(dst->lexeme, &address_num, 1);
+				strncat(dst->lexeme, address_num, 1);
 				availableAddresses--;
 			}
 			return ans;
@@ -347,18 +348,6 @@ VALUE* interpret(NODE *tree)
 }
 
 
-MC* mmc_mcg(TAC* i)
-{
-	if (i==NULL) return NULL;
-	switch (i->op) {
-		case tac_plus:
-		MC* ins = new_mci()
-	default:
-		printf("unknown type code %d (%p) in mmc_mcg\n",i->op,i);
-		return NULL;
-	}
-}
-
 MC* new_mci(char* s)
 {
 	MC* ans = (MC*)malloc(sizeof(MC));
@@ -366,10 +355,51 @@ MC* new_mci(char* s)
 		printf("Error! memory not allocated.");
 		exit(0);
 	}
-	ans->insn = s;
+	ans->insn = (char*)malloc(sizeof(char)*50);
+	strcpy(ans->insn, s);
 	ans->next = NULL;
 	return ans;
 }
+
+MC* mmc_mcg(TAC* i)
+{
+	if (i==NULL) return NULL;
+	switch (i->op) {
+		case tac_plus:;
+			char str[50] = "add ";
+			strncat(str, i->dst->lexeme, strlen(i->dst->lexeme)+1);
+			strncat(str, ", ", 3);
+			strncat(str, i->src1->lexeme, strlen(i->dst->lexeme)+1);
+			strncat(str, ", ", 3);
+			strncat(str, i->src2->lexeme, strlen(i->dst->lexeme)+1);
+			//strncat(str, "\0", 1);
+			MC* ins = new_mci(str);
+			ins->next = mmc_mcg(i->next);
+			return ins;
+
+		case tac_load:;
+			char str_load[50] = "li ";
+			strncat(str_load, i->dst->lexeme, strlen(i->dst->lexeme)+1);
+			strncat(str_load, ", ", 3);
+			char raw_val[8]; 
+			sprintf(raw_val, "%d", i->dst->value);
+			//int_to_char(i->dst->value);
+			strncat(str_load, raw_val, 8);
+			MC* ins_load = new_mci(str_load);
+			ins_load->next = mmc_mcg(i->next);
+			return ins_load;
+
+		case tac_return:;
+			char str_ret[50] = "move $v0, ";
+			strncat(str_ret, i->dst->lexeme, strlen(i->dst->lexeme)+1);
+			MC* ins_ret = new_mci(str_ret);
+			return ins_ret;
+	default:
+		printf("unknown type code %d (%p) in mmc_mcg\n",i->op,i);
+		return NULL;
+	}
+}
+
 
 void mmc_print_mc(MC* i)
 {
@@ -384,6 +414,17 @@ int findArg(int argc, char** argv, char* elem)
     }
   }
   return 0;
+}
+
+void write_to_file(MC* i){
+	FILE* fptr;
+	fptr = fopen("output.asm", "w");
+	fprintf(fptr, "%s\n", ".globl main\n.text\nmain:");
+	for(;i!=NULL;i=i->next) {
+		fprintf(fptr,"%s\n",i->insn);
+	}
+	fprintf(fptr, "%s\n", "syscall");
+	fclose(fptr);
 }
 
 int main(int argc, char** argv)
@@ -406,7 +447,10 @@ int main(int argc, char** argv)
 		mmc_print_ic(tac);
 
 		if (findArg(argc, argv, "-a")) { //Assembly
-			
+			printf("\n");
+			MC* mc = mmc_mcg(tac);
+			mmc_print_mc(mc);
+			write_to_file(mc);
 		}
     }
 
