@@ -98,10 +98,11 @@ extern void init_symbtable(void);
 enum tac_op
   {
    tac_plus = 1,
-   tac_load = 2
+   tac_load = 2,
+   tac_return = 3
   };
 
-char* tac_ops[] = {"NOOP","ADD", "LOAD"};
+char* tac_ops[] = {"NOOP","ADD", "LOAD", "RETURN"};
 
 typedef struct tac {
 int op ;
@@ -110,6 +111,12 @@ TOKEN* src2;
 TOKEN* dst;
 struct tac* next;
 } TAC;
+
+
+typedef struct mc {
+  char* insn;
+  struct mc* next;
+} MC;
 
 int availableAddresses = 8;
 #define MAX_ADDRESSES 8
@@ -121,131 +128,128 @@ char int_to_char(int x)
   return ret;
 }
 
-TAC* new_tac_load(int op, TOKEN* src1)
-{
-  TAC* ans = (TAC*)malloc(sizeof(TAC));
-  if (ans==NULL) {
-    printf("Error! memory not allocated.");
-    exit(0);
-  }
-  ans->op = op;
-  ans->src1 = src1;
-  src1->lexeme = (char*)malloc(4*sizeof(char));
-  char address_num;
-  char address[4] = "$t";
-  
-  if (availableAddresses > 0){
-    
-    address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
-    strcpy(src1->lexeme, address);
-    strncat(src1->lexeme, &address_num, 1);
-    availableAddresses--;
-    
-  }
-
-  return ans;
-}
-
 TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
-  TAC* ans = (TAC*)malloc(sizeof(TAC));
-  if (ans==NULL) {
-    printf("Error! memory not allocated.");
-    exit(0);
-  }
-  ans->op = op;
-  ans->src1 = src1;
-  ans->src2 = src2;
-  ans->dst = dst;
-  return ans;
+	TAC* ans = (TAC*)malloc(sizeof(TAC));
+	if (ans==NULL) {
+		printf("Error! memory not allocated.");
+		exit(0);
+	}
+	ans->op = op;
+  	switch (op) {
+		case tac_plus:
+			ans->src1 = src1;
+			ans->src2 = src2;
+			ans->dst = dst;
+			return ans;
+		
+		case tac_load:
+			ans->dst = dst;
+			dst->lexeme = (char*)malloc(4*sizeof(char));
+			char address_num;
+			char address[4] = "$t";
+	
+			if (availableAddresses > 0){
+			
+				address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
+				strcpy(dst->lexeme, address);
+				strncat(dst->lexeme, &address_num, 1);
+				availableAddresses--;
+			}
+			return ans;
+
+		case tac_return:
+			ans->dst = dst;
+			return ans;
+
+		default:
+			return NULL;
+  	}
+
 }
 
 void mmc_print_ic(TAC* i)
 {
-  for(;i!=NULL;i=i->next)
-    if (i->op == tac_plus){
-    printf("%s %s, %s, %s\n",
-	   tac_ops[i->op], // need to range check!
-	   i->src1->lexeme,
-	   i->src2->lexeme,
-	   i->dst->lexeme);
-    } else if (i->op == tac_load){
-      printf("%s %s, %d\n",
-      tac_ops[i->op],
-      i->src1->lexeme,
-      i->src1->value);
-    }
+  	for(;i!=NULL;i=i->next)
+	if (i->op == tac_plus){
+		printf("%s %s, %s, %s\n",
+		tac_ops[i->op], // need to range check!
+		i->src1->lexeme,
+		i->src2->lexeme,
+		i->dst->lexeme);
+	} else if (i->op == tac_load){
+		printf("%s %s, %d\n",
+		tac_ops[i->op],
+		i->dst->lexeme,
+		i->dst->value);
+	} else if (i->op == tac_return){
+		printf("%s %s\n",
+		tac_ops[i->op],
+		i->dst->lexeme);
+	}
 }
 
 void attach_tac(TAC* left, TAC* right){
-  if (left->next == NULL) {
-    left->next = right;
-  } else {
-    attach_tac(left->next, right);
-  }
+	if (left->next == NULL) {
+		left->next = right;
+	} else {
+		attach_tac(left->next, right);
+	}
 }
 
 TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need to jump to.
 {
-  switch (ast->type) {
-    case 68: //D
-      printf("Begin TAC Construction.\n");
-      return mmc_icg(ast->right);
-    break;
-    case RETURN:
-      printf("Return found.\n");
-      return mmc_icg(ast->left); 
-    break;
-    case LEAF:
-      printf("Leaf found.\n");
-      return mmc_icg(ast->left);
-    break;
-    case 43: //+
-      printf("Plus found.\n");
-      TAC* left = mmc_icg(ast->left);
+  	switch (ast->type) {
+		case 68: //D
+			printf("Begin TAC Construction.\n");
+			return mmc_icg(ast->right);
 
-      TAC* right = mmc_icg(ast->right);
+		case RETURN:
+			printf("Return found.\n");
+			TAC* tac_process_to_return = mmc_icg(ast->left);
+			TAC* ret = new_tac(tac_return, NULL, NULL, tac_process_to_return->dst);
+			attach_tac(tac_process_to_return, ret);
+			return tac_process_to_return;
 
-      TAC* add = new_tac(tac_plus, left->src1, right->src1, left->src1);
+		case LEAF:
+			printf("Leaf found.\n");
+			return mmc_icg(ast->left);
 
-      // We must iterate through to the end of the left tacs.
-      attach_tac(left, right);
-      right->next = add;
-      return left;
-    break;
-    case CONSTANT:
-      
-      printf("Constant found.\n");
-      return new_tac_load(tac_load, (TOKEN *) ast);
-    break;
-    // case 45: //-
-    //   printf("Minus found.\n");
-    //   return minusValues(interpret(ast->left), interpret(ast->right));
-    //   break;
-    // case 47: //(/)
-    //   printf("Divide found.\n");
-    //   return divideValues(interpret(ast->left), interpret(ast->right));
-    //   break;
-    // case 42: //(*)
-    //   printf("Multiplication found.\n");
-    //   return multiplyValues(interpret(ast->left), interpret(ast->right));
-    //   break;
-    // case 37: //%
-    //   printf("Modulo found.\n");
-    //   return moduloValues(interpret(ast->left), interpret(ast->right));
-    //   break;
-    // case CONSTANT:;
-    //   TOKEN *t = (TOKEN *)ast;
-    //   printf("Constant found: %d.\n",t->value);
-    //   VALUE* value = (VALUE*)malloc(sizeof(VALUE));;
-    //   value->type = mmcINT;
-    //   value->v.integer = t->value;
-    //   return value;
+		case 43: //+
+			printf("Plus found.\n");
+			TAC* left = mmc_icg(ast->left);
 
-    // break;
-    default:
-    printf("unknown type code %d (%p) in mmc_icg\n",ast->type,ast);
-    return NULL;
-  }
+			TAC* right = mmc_icg(ast->right);
+
+			TAC* add = new_tac(tac_plus, left->dst, right->dst, left->dst);
+
+			// We must iterate through to the end of the left tacs.
+			attach_tac(left, right);
+			right->next = add;
+			return left;
+
+		case CONSTANT:
+			printf("Constant found.\n");
+			return new_tac(tac_load, NULL, NULL, (TOKEN *) ast);
+		// case 45: //-
+		//   printf("Minus found.\n");
+		//   return minusValues(interpret(ast->left), interpret(ast->right));
+		//   break;
+		// case 47: //(/)
+		//   printf("Divide found.\n");
+		//   return divideValues(interpret(ast->left), interpret(ast->right));
+		//   break;
+		// case 42: //(*)
+		//   printf("Multiplication found.\n");
+		//   return multiplyValues(interpret(ast->left), interpret(ast->right));
+		//   break;
+		// case 37: //%
+		//   printf("Modulo found.\n");
+		//   return moduloValues(interpret(ast->left), interpret(ast->right));
+		//   break;
+		default:
+			printf("unknown type code %d (%p) in mmc_icg\n",ast->type,ast);
+			return NULL;
+  	}
 };
 
 typedef struct value {
@@ -342,6 +346,36 @@ VALUE* interpret(NODE *tree)
   }
 }
 
+
+MC* mmc_mcg(TAC* i)
+{
+	if (i==NULL) return NULL;
+	switch (i->op) {
+		case tac_plus:
+		MC* ins = new_mci()
+	default:
+		printf("unknown type code %d (%p) in mmc_mcg\n",i->op,i);
+		return NULL;
+	}
+}
+
+MC* new_mci(char* s)
+{
+	MC* ans = (MC*)malloc(sizeof(MC));
+	if (ans==NULL) {
+		printf("Error! memory not allocated.");
+		exit(0);
+	}
+	ans->insn = s;
+	ans->next = NULL;
+	return ans;
+}
+
+void mmc_print_mc(MC* i)
+{
+  	for(;i!=NULL;i=i->next) printf("%s\n",i->insn);
+}
+
 int findArg(int argc, char** argv, char* elem)
 {
   for(int x = 1; x < argc; x++) {
@@ -362,17 +396,19 @@ int main(int argc, char** argv)
     tree = ans;
     printf("parse finished with %p\n", tree);
     print_tree(tree);
-    if (findArg(argc, argv, "-i"))
-    {
+    if (findArg(argc, argv, "-i")) {
       VALUE* status = interpret(tree);
       printf("Program exited with status code %d.\n", status->v.integer);
       
     }
-    if (findArg(argc, argv, "-m"))
-    {
-      TAC* tac = mmc_icg(tree);
-      mmc_print_ic(tac);
-      
+    if (findArg(argc, argv, "-m")) {
+		TAC* tac = mmc_icg(tree);
+		mmc_print_ic(tac);
+
+		if (findArg(argc, argv, "-a")) { //Assembly
+			
+		}
     }
+
     return 0;
 }
