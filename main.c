@@ -99,10 +99,13 @@ enum tac_op
   {
    tac_plus = 1,
    tac_load = 2,
-   tac_return = 3
+   tac_return = 3,
+   tac_minus = 4,
+   tac_divide = 5,
+   tac_multiply = 6
   };
 
-char* tac_ops[] = {"NOOP","ADD", "LOAD", "RETURN"};
+char* tac_ops[] = {"NOOP","ADD", "LOAD", "RETURN", "SUBTRACT", "DIVIDE", "MULTIPLY"};
 
 typedef struct tac {
 int op ;
@@ -141,6 +144,24 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 			ans->src2 = src2;
 			ans->dst = dst;
 			return ans;
+
+		case tac_minus:
+			ans->src1 = src1;
+			ans->src2 = src2;
+			ans->dst = dst;
+			return ans;
+
+		case tac_divide:
+			ans->src1 = src1;
+			ans->src2 = src2;
+			ans->dst = dst;
+			return ans;
+
+		case tac_multiply:
+			ans->src1 = src1;
+			ans->src2 = src2;
+			ans->dst = dst;
+			return ans;
 		
 		case tac_load:
 			ans->dst = dst;
@@ -149,8 +170,6 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 			char address[4] = "$t";
 	
 			if (availableAddresses > 0){
-			
-				//address_num = int_to_char(MAX_ADDRESSES-availableAddresses);
 				sprintf(address_num, "%d", MAX_ADDRESSES-availableAddresses);
 				strcpy(dst->lexeme, address);
 				strncat(dst->lexeme, address_num, 1);
@@ -171,7 +190,7 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 void mmc_print_ic(TAC* i)
 {
   	for(;i!=NULL;i=i->next)
-	if (i->op == tac_plus){
+	if (i->op == tac_plus || i->op == tac_minus || i->op == tac_divide || i->op == tac_multiply){
 		printf("%s %s, %s, %s\n",
 		tac_ops[i->op], // need to range check!
 		i->src1->lexeme,
@@ -217,32 +236,58 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 
 		case 43: //+
 			printf("Plus found.\n");
-			TAC* left = mmc_icg(ast->left);
+			TAC* left_plus = mmc_icg(ast->left);
 
-			TAC* right = mmc_icg(ast->right);
+			TAC* right_plus = mmc_icg(ast->right);
 
-			TAC* add = new_tac(tac_plus, left->dst, right->dst, left->dst);
+			TAC* add = new_tac(tac_plus, left_plus->dst, right_plus->dst, left_plus->dst);
 
 			// We must iterate through to the end of the left tacs.
-			attach_tac(left, right);
-			right->next = add;
-			return left;
+			attach_tac(left_plus, right_plus);
+			right_plus->next = add;
+			return left_plus;
 
 		case CONSTANT:
 			printf("Constant found.\n");
 			return new_tac(tac_load, NULL, NULL, (TOKEN *) ast);
-		// case 45: //-
-		//   printf("Minus found.\n");
-		//   return minusValues(interpret(ast->left), interpret(ast->right));
-		//   break;
-		// case 47: //(/)
-		//   printf("Divide found.\n");
-		//   return divideValues(interpret(ast->left), interpret(ast->right));
-		//   break;
-		// case 42: //(*)
-		//   printf("Multiplication found.\n");
-		//   return multiplyValues(interpret(ast->left), interpret(ast->right));
-		//   break;
+		case 45: //-
+		 	printf("Minus found.\n");
+		  	TAC* left_sub = mmc_icg(ast->left);
+
+			TAC* right_sub = mmc_icg(ast->right);
+
+			TAC* minus = new_tac(tac_minus, left_sub->dst, right_sub->dst, left_sub->dst);
+
+			// We must iterate through to the end of the left tacs.
+			attach_tac(left_sub, right_sub);
+			right_sub->next = minus;
+			return left_sub;
+		  
+		case 47: //(/)
+			printf("Divide found.\n");
+			TAC* left_div = mmc_icg(ast->left);
+
+			TAC* right_div = mmc_icg(ast->right);
+
+			TAC* divide = new_tac(tac_divide, left_div->dst, right_div->dst, left_div->dst);
+
+			// We must iterate through to the end of the left tacs.
+			attach_tac(left_div, right_div);
+			right_div->next = divide;
+			return left_div;
+		  
+		case 42: //(*)
+			printf("Multiplication found.\n");
+		  	TAC* left_multi = mmc_icg(ast->left);
+
+			TAC* right_multi = mmc_icg(ast->right);
+
+			TAC* multiply = new_tac(tac_multiply, left_multi->dst, right_multi->dst, left_multi->dst);
+
+			// We must iterate through to the end of the left tacs.
+			attach_tac(left_multi, right_multi);
+			right_multi->next = multiply;
+			return left_multi;
 		// case 37: //%
 		//   printf("Modulo found.\n");
 		//   return moduloValues(interpret(ast->left), interpret(ast->right));
@@ -263,8 +308,7 @@ typedef struct value {
   } v;
 } VALUE;
 
-enum valuetype
-  {
+enum valuetype {
    mmcINT = 1,
    mmcBOOL = 2,
    mmcSTRING = 3
@@ -383,7 +427,6 @@ MC* mmc_mcg(TAC* i)
 			strncat(str_load, ", ", 3);
 			char raw_val[8]; 
 			sprintf(raw_val, "%d", i->dst->value);
-			//int_to_char(i->dst->value);
 			strncat(str_load, raw_val, 8);
 			MC* ins_load = new_mci(str_load);
 			ins_load->next = mmc_mcg(i->next);
