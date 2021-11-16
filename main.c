@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+#define ASSIGNMENT 126
 char *named(int t)
 {
     static char b[100];
@@ -102,10 +103,21 @@ enum tac_op
    tac_return = 3,
    tac_minus = 4,
    tac_divide = 5,
-   tac_multiply = 6
+   tac_multiply = 6,
+   tac_mod = 7
   };
 
-char* tac_ops[] = {"NOOP","ADD", "LOAD", "RETURN", "SUBTRACT", "DIVIDE", "MULTIPLY"};
+char* tac_ops[] = {"NOOP","ADD", "LOAD", "RETURN", "SUBTRACT", "DIVIDE", "MULTIPLY", "MOD"};
+
+typedef struct value {
+  int          type;
+  union {
+    int integer;
+    int boolean; // will need this soon
+    char* string;
+    void* function;
+  } v;
+} VALUE;
 
 typedef struct tac {
 int op ;
@@ -121,9 +133,24 @@ typedef struct mc {
   struct mc* next;
 } MC;
 
+typedef struct binding {
+	TOKEN* name;
+	VALUE* val;
+	struct binding* next;
+} BINDING;
+
+typedef struct frame {
+	BINDING* binding;
+	struct frame* next;
+} FRAME;
+
+FRAME* new_frame(){
+	FRAME* frame = (FRAME*)malloc(sizeof(FRAME));
+	return frame;
+}
+
 int availableAddresses = 8;
 #define MAX_ADDRESSES 8
-
 
 char int_to_char(int x)
 {
@@ -162,7 +189,13 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 			ans->src2 = src2;
 			ans->dst = dst;
 			return ans;
-		
+
+		case tac_mod:
+			ans->src1 = src1;
+			ans->src2 = src2;
+			ans->dst = dst;
+			return ans;
+
 		case tac_load:
 			ans->dst = dst;
 			dst->lexeme = (char*)malloc(4*sizeof(char));
@@ -190,7 +223,7 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 void mmc_print_ic(TAC* i)
 {
   	for(;i!=NULL;i=i->next)
-	if (i->op == tac_plus || i->op == tac_minus || i->op == tac_divide || i->op == tac_multiply){
+	if (i->op == tac_plus || i->op == tac_minus || i->op == tac_divide || i->op == tac_multiply || i->op == tac_mod){
 		printf("%s %s, %s, %s\n",
 		tac_ops[i->op], // need to range check!
 		i->src1->lexeme,
@@ -288,25 +321,23 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 			attach_tac(left_multi, right_multi);
 			right_multi->next = multiply;
 			return left_multi;
-		// case 37: //%
-		//   printf("Modulo found.\n");
-		//   return moduloValues(interpret(ast->left), interpret(ast->right));
-		//   break;
+		case 37: //%
+		  	printf("Modulo found.\n");
+		  	TAC* left_mod = mmc_icg(ast->left);
+
+			TAC* right_mod = mmc_icg(ast->right);
+
+			TAC* mod = new_tac(tac_mod, left_mod->dst, right_mod->dst, left_mod->dst);
+
+			// We must iterate through to the end of the left tacs.
+			attach_tac(left_mod, right_mod);
+			right_mod->next = mod;
+			return left_mod;
 		default:
 			printf("unknown type code %d (%p) in mmc_icg\n",ast->type,ast);
 			return NULL;
   	}
 };
-
-typedef struct value {
-  int          type;
-  union {
-    int integer;
-    int boolean; // will need this soon
-    char* string;
-    void* function;
-  } v;
-} VALUE;
 
 enum valuetype {
    mmcINT = 1,
@@ -344,51 +375,106 @@ VALUE* moduloValues(VALUE* leftValue, VALUE* rightValue){
   return leftValue;
 }
 
-VALUE* interpret(NODE *tree)
+VALUE* declare_variable(TOKEN* var, FRAME* frame){
+	BINDING* bindings = frame->binding;
+	BINDING* new = (BINDING*)malloc(sizeof(BINDING));
+	if (new != 0){
+		new->name = var;
+		new->val = (VALUE*)0;
+		new->next = bindings;
+		return (VALUE*)0;
+	}
+	//error("Binding failed\n");
+}
+
+VALUE* name_method(TOKEN* var, FRAME* frame){
+	while (frame != NULL){
+		BINDING* bindings = frame->binding;
+		while (bindings != NULL){
+			if (bindings->name==var){
+				return bindings->val;
+			}
+		}
+		frame = frame->next;
+	}
+}
+
+VALUE* interpret(NODE *tree, FRAME* frame)
 {
-  switch(tree->type){
-    case 68: //D
-      printf("Begin Interpretation.\n");
-      return interpret(tree->right);
-    break;
-    case RETURN:
-      printf("Return found.\n");
-      return interpret(tree->left); 
-    break;
-    case LEAF:
-      printf("Leaf found.\n");
-      return interpret(tree->left);
-    break;
-    case 43: //+
-      printf("Plus found.\n");
-      return addValues(interpret(tree->left), interpret(tree->right));
-      break;
-    case 45: //-
-      printf("Minus found.\n");
-      return minusValues(interpret(tree->left), interpret(tree->right));
-      break;
-    case 47: //(/)
-      printf("Divide found.\n");
-      return divideValues(interpret(tree->left), interpret(tree->right));
-      break;
-    case 42: //(*)
-      printf("Multiplication found.\n");
-      return multiplyValues(interpret(tree->left), interpret(tree->right));
-      break;
-    case 37: //%
-      printf("Modulo found.\n");
-      return moduloValues(interpret(tree->left), interpret(tree->right));
-      break;
-    case CONSTANT:;
-      TOKEN *t = (TOKEN *)tree;
-      printf("Constant found: %d.\n",t->value);
-      VALUE* value = (VALUE*)malloc(sizeof(VALUE));;
-      value->type = mmcINT;
-      value->v.integer = t->value;
-      return value;
-    default:
-    break;
-  }
+  	switch(tree->type){
+    	case 68: //D
+      		printf("Begin Interpretation.\n");
+      		return interpret(tree->right, frame);
+    	break;
+    	case RETURN:
+      		printf("Return found.\n");
+      		return interpret(tree->left, frame); 
+    	break;
+		case LEAF:
+			printf("Leaf found.\n");
+			return interpret(tree->left, frame);
+		break;
+		case 43: //+
+			printf("Plus found.\n");
+			return addValues(interpret(tree->left, frame), interpret(tree->right, frame));
+		break;
+		case 45: //-
+			printf("Minus found.\n");
+			return minusValues(interpret(tree->left, frame), interpret(tree->right, frame));
+		break;
+		case 47: //(/)
+			printf("Divide found.\n");
+			return divideValues(interpret(tree->left, frame), interpret(tree->right, frame));
+		break;
+		case 42: //(*)
+			printf("Multiplication found.\n");
+			return multiplyValues(interpret(tree->left, frame), interpret(tree->right, frame));
+		break;
+		case 37: //%
+			printf("Modulo found.\n");
+			return moduloValues(interpret(tree->left, frame), interpret(tree->right, frame));
+		break;
+			case CONSTANT:;
+			TOKEN *t = (TOKEN *)tree;
+			printf("Constant found: %d.\n",t->value);
+			VALUE* value = (VALUE*)malloc(sizeof(VALUE));;
+			value->type = mmcINT;
+			value->v.integer = t->value;
+			return value;
+		case 59: // ;
+			printf("Sequence found\n");
+			interpret(tree->left, frame);
+			return interpret(tree->right, frame);	
+		case ASSIGNMENT:
+			printf("Assignment found\n");
+			TOKEN* token = new_token(interpret(tree->left, frame)->v.integer);
+			//VALUE* val = interpret(tree->right);
+			//printf("Token %d\n", tree->right->type); =
+			// printf("Token %d\n", tree->right->left->type); //LEAF
+			// printf("Token %d\n", tree->right->right->type); //LEAF
+			// printf("Token %d\n", tree->right->left->left->type); //ID
+			// printf("Token %d\n", tree->right->right->left->type); // CONSTANT
+			//printf("Token %s\n", ((TOKEN*)tree->right-->left)->lexeme);
+			token->lexeme = interpret(tree->left, frame)->v.string;
+			token->value = interpret(tree->right, frame)->v.integer;
+
+			return declare_variable(token, frame);
+		case INT:
+			printf("Int type found.\n");
+			VALUE* int_value = (VALUE*)malloc(sizeof(VALUE));
+			int_value->type=mmcINT;
+			int_value->v.integer = mmcINT;
+			return int_value;
+		case IDENTIFIER:
+			printf("Identifier found\n");
+			TOKEN* id = (TOKEN*)tree;
+			VALUE* id_val = (VALUE*)malloc(sizeof(VALUE));
+			id_val->type = mmcSTRING;
+			id_val->v.string = id->lexeme;
+			return id_val;
+		default:
+		break;
+  	}
 }
 
 
@@ -481,8 +567,8 @@ int main(int argc, char** argv)
     printf("parse finished with %p\n", tree);
     print_tree(tree);
     if (findArg(argc, argv, "-i")) {
-      VALUE* status = interpret(tree);
-      printf("Program exited with status code %d.\n", status->v.integer);
+		VALUE* status = interpret(tree, new_frame());
+		printf("Program exited with status code %d.\n", status->v.integer);
       
     }
     if (findArg(argc, argv, "-m")) {
