@@ -146,6 +146,8 @@ typedef struct frame {
 
 FRAME* new_frame(){
 	FRAME* frame = (FRAME*)malloc(sizeof(FRAME));
+	frame->binding = NULL;
+	
 	return frame;
 }
 
@@ -379,9 +381,13 @@ VALUE* declare_variable(TOKEN* var, FRAME* frame){
 	BINDING* bindings = frame->binding;
 	BINDING* new = (BINDING*)malloc(sizeof(BINDING));
 	if (new != 0){
+		VALUE* value = (VALUE*)malloc(sizeof(VALUE));
+		value->type = mmcINT;
+		value->v.integer = var->value;
 		new->name = var;
-		new->val = (VALUE*)0;
+		new->val = value;
 		new->next = bindings;
+		frame->binding = new;
 		return (VALUE*)0;
 	}
 	//error("Binding failed\n");
@@ -391,16 +397,22 @@ VALUE* name_method(TOKEN* var, FRAME* frame){
 	while (frame != NULL){
 		BINDING* bindings = frame->binding;
 		while (bindings != NULL){
-			if (bindings->name==var){
+			//printf("Var: %s, Binding: %s, Result: %d\n",var->lexeme, bindings->name->lexeme, strcmp(bindings->name->lexeme, var->lexeme));
+			if (strcmp(bindings->name->lexeme, var->lexeme) == 0){
 				return bindings->val;
 			}
+			bindings = bindings->next;
 		}
 		frame = frame->next;
 	}
+	return NULL;
 }
 
 VALUE* interpret(NODE *tree, FRAME* frame)
 {
+	// if (frame->binding == NULL){
+	// 	printf("Binding is still null\n");
+	// }
   	switch(tree->type){
     	case 68: //D
       		printf("Begin Interpretation.\n");
@@ -448,6 +460,7 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 		case ASSIGNMENT:
 			printf("Assignment found\n");
 			TOKEN* token = new_token(interpret(tree->left, frame)->v.integer);
+			printf("Type: %d\n", token->type);
 			//VALUE* val = interpret(tree->right);
 			//printf("Token %d\n", tree->right->type); =
 			// printf("Token %d\n", tree->right->left->type); //LEAF
@@ -455,8 +468,9 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			// printf("Token %d\n", tree->right->left->left->type); //ID
 			// printf("Token %d\n", tree->right->right->left->type); // CONSTANT
 			//printf("Token %s\n", ((TOKEN*)tree->right-->left)->lexeme);
-			token->lexeme = interpret(tree->left, frame)->v.string;
-			token->value = interpret(tree->right, frame)->v.integer;
+			token->lexeme = interpret(tree->right->left, frame)->v.string;
+			//printf("Lexeme: %s\n", token->lexeme);
+			token->value = interpret(tree->right->right, frame)->v.integer;
 
 			return declare_variable(token, frame);
 		case INT:
@@ -467,11 +481,21 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			return int_value;
 		case IDENTIFIER:
 			printf("Identifier found\n");
+			
 			TOKEN* id = (TOKEN*)tree;
-			VALUE* id_val = (VALUE*)malloc(sizeof(VALUE));
-			id_val->type = mmcSTRING;
-			id_val->v.string = id->lexeme;
-			return id_val;
+			printf("Token lexeme: %s\n", id->lexeme);
+			VALUE* found_id = name_method(id, frame);
+			if (found_id == NULL){
+				printf("Make new variable\n");
+				VALUE* id_val = (VALUE*)malloc(sizeof(VALUE));
+				id_val->type = mmcSTRING;
+				id_val->v.string = id->lexeme;
+				//printf("String: %s\n", id_val->v.string);
+				return id_val;
+			} else {
+				printf("Variable found\n");
+				return found_id;
+			}
 		default:
 		break;
   	}
@@ -567,7 +591,9 @@ int main(int argc, char** argv)
     printf("parse finished with %p\n", tree);
     print_tree(tree);
     if (findArg(argc, argv, "-i")) {
-		VALUE* status = interpret(tree, new_frame());
+		FRAME* frame = new_frame();
+		
+		VALUE* status = interpret(tree, frame);
 		printf("Program exited with status code %d.\n", status->v.integer);
       
     }
