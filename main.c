@@ -378,6 +378,7 @@ VALUE* moduloValues(VALUE* leftValue, VALUE* rightValue){
 }
 
 VALUE* declare_variable(TOKEN* var, FRAME* frame){
+	//printf("Variable declare\n");
 	BINDING* bindings = frame->binding;
 	BINDING* new = (BINDING*)malloc(sizeof(BINDING));
 	if (new != 0){
@@ -393,7 +394,7 @@ VALUE* declare_variable(TOKEN* var, FRAME* frame){
 	//error("Binding failed\n");
 }
 
-VALUE* name_method(TOKEN* var, FRAME* frame){
+VALUE* get_variable(TOKEN* var, FRAME* frame){
 	while (frame != NULL){
 		BINDING* bindings = frame->binding;
 		while (bindings != NULL){
@@ -410,9 +411,6 @@ VALUE* name_method(TOKEN* var, FRAME* frame){
 
 VALUE* interpret(NODE *tree, FRAME* frame)
 {
-	// if (frame->binding == NULL){
-	// 	printf("Binding is still null\n");
-	// }
   	switch(tree->type){
     	case 68: //D
       		printf("Begin Interpretation.\n");
@@ -455,22 +453,18 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			return value;
 		case 59: // ;
 			printf("Sequence found\n");
-			interpret(tree->left, frame);
+			interpret(tree->left, frame); // Go through and interpret the first part of the sequence
 			return interpret(tree->right, frame);	
 		case ASSIGNMENT:
 			printf("Assignment found\n");
-			TOKEN* token = new_token(interpret(tree->left, frame)->v.integer);
-			printf("Type: %d\n", token->type);
-			//VALUE* val = interpret(tree->right);
-			//printf("Token %d\n", tree->right->type); =
-			// printf("Token %d\n", tree->right->left->type); //LEAF
-			// printf("Token %d\n", tree->right->right->type); //LEAF
-			// printf("Token %d\n", tree->right->left->left->type); //ID
-			// printf("Token %d\n", tree->right->right->left->type); // CONSTANT
-			//printf("Token %s\n", ((TOKEN*)tree->right-->left)->lexeme);
-			token->lexeme = interpret(tree->right->left, frame)->v.string;
-			//printf("Lexeme: %s\n", token->lexeme);
-			token->value = interpret(tree->right->right, frame)->v.integer;
+			// Generate a token for the variable
+			TOKEN* token = new_token(interpret(tree->left, frame)->v.integer); // Type
+			token->lexeme = interpret(tree->right->left, frame)->v.string; // Variable name
+			if (tree->right->right != NULL){ // Check to see if there is a value assigment.
+				token->value = interpret(tree->right->right, frame)->v.integer; // Value
+			}else{ // If no value, default to 0;
+				token->value = 0;
+			}
 
 			return declare_variable(token, frame);
 		case INT:
@@ -483,19 +477,23 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			printf("Identifier found\n");
 			
 			TOKEN* id = (TOKEN*)tree;
-			printf("Token lexeme: %s\n", id->lexeme);
-			VALUE* found_id = name_method(id, frame);
+			printf("Id: %s\n", id->lexeme);
+			VALUE* found_id = get_variable(id, frame); // Check to see if it is already defined.
 			if (found_id == NULL){
 				printf("Make new variable\n");
 				VALUE* id_val = (VALUE*)malloc(sizeof(VALUE));
 				id_val->type = mmcSTRING;
 				id_val->v.string = id->lexeme;
-				//printf("String: %s\n", id_val->v.string);
 				return id_val;
 			} else {
 				printf("Variable found\n");
 				return found_id;
 			}
+		case 61:
+			printf("Equals found\n");
+			VALUE* val = get_variable((TOKEN*)tree->left->left, frame);
+			val->v.integer = interpret(tree->right, frame)->v.integer;
+			return val;
 		default:
 		break;
   	}
@@ -515,21 +513,28 @@ MC* new_mci(char* s)
 	return ans;
 }
 
+MC* mmc_mcg(TAC* i);
+
+MC* three_address_generate(char* op, TAC* i){
+	char str[50];
+	strncat(str, op, 5);
+	strncat(str, i->dst->lexeme, strlen(i->dst->lexeme)+1);
+	strncat(str, ", ", 3);
+	strncat(str, i->src1->lexeme, strlen(i->dst->lexeme)+1);
+	strncat(str, ", ", 3);
+	strncat(str, i->src2->lexeme, strlen(i->dst->lexeme)+1);
+	//strncat(str, "\0", 1);
+	MC* ins = new_mci(str);
+	ins->next = mmc_mcg(i->next);
+	return ins;
+}
+
 MC* mmc_mcg(TAC* i)
 {
 	if (i==NULL) return NULL;
 	switch (i->op) {
-		case tac_plus:;
-			char str[50] = "add ";
-			strncat(str, i->dst->lexeme, strlen(i->dst->lexeme)+1);
-			strncat(str, ", ", 3);
-			strncat(str, i->src1->lexeme, strlen(i->dst->lexeme)+1);
-			strncat(str, ", ", 3);
-			strncat(str, i->src2->lexeme, strlen(i->dst->lexeme)+1);
-			//strncat(str, "\0", 1);
-			MC* ins = new_mci(str);
-			ins->next = mmc_mcg(i->next);
-			return ins;
+		case tac_plus:
+			return three_address_generate("add ", i);
 
 		case tac_load:;
 			char str_load[50] = "li ";
@@ -542,11 +547,41 @@ MC* mmc_mcg(TAC* i)
 			ins_load->next = mmc_mcg(i->next);
 			return ins_load;
 
-		case tac_return:;
-			char str_ret[50] = "move $v0, ";
-			strncat(str_ret, i->dst->lexeme, strlen(i->dst->lexeme)+1);
-			MC* ins_ret = new_mci(str_ret);
-			return ins_ret;
+		case tac_minus:;
+			return three_address_generate("sub ", i);
+
+		case tac_multiply:
+			return three_address_generate("mul ", i);
+
+		case tac_divide:;
+			char str_div[50] = "div ";
+			strncat(str_div, i->src1->lexeme, strlen(i->src1->lexeme)+1);
+			strncat(str_div, ", ", 3);
+			strncat(str_div, i->src2->lexeme, strlen(i->src2->lexeme)+1);
+			strncat(str_div, "\n", 2);
+			strncat(str_div, "mflo ", 6); // Qoutient goes into register $hi, so we need to move it into destination
+			strncat(str_div, i->dst->lexeme, strlen(i->dst->lexeme)+1);
+			MC* ins_div = new_mci(str_div);
+			ins_div->next = mmc_mcg(i->next);
+			return ins_div;
+		
+		case tac_mod:;
+			char str_mod[50] = "div ";
+			strncat(str_mod, i->src1->lexeme, strlen(i->src1->lexeme)+1);
+			strncat(str_mod, ", ", 3);
+			strncat(str_mod, i->src2->lexeme, strlen(i->src2->lexeme)+1);
+			strncat(str_mod, "\n", 2);
+			strncat(str_mod, "mfhi ", 6); // Remainder goes into register $lo, so we need to move it into destination
+			strncat(str_mod, i->dst->lexeme, strlen(i->dst->lexeme)+1);
+			MC* ins_mod = new_mci(str_mod);
+			ins_mod->next = mmc_mcg(i->next);
+			return ins_mod;
+		case tac_return:
+			// char str_ret[50] = "move $v0, ";
+			// strncat(str_ret, i->dst->lexeme, strlen(i->dst->lexeme)+1);
+			// MC* ins_ret = new_mci(str_ret);
+			// return ins_ret;
+			return new_mci(""); // Temporary
 	default:
 		printf("unknown type code %d (%p) in mmc_mcg\n",i->op,i);
 		return NULL;
@@ -576,7 +611,7 @@ void write_to_file(MC* i){
 	for(;i!=NULL;i=i->next) {
 		fprintf(fptr,"%s\n",i->insn);
 	}
-	fprintf(fptr, "%s\n", "syscall");
+	fprintf(fptr, "%s\n", "li $v0, 10\nsyscall");
 	fclose(fptr);
 }
 
@@ -592,7 +627,6 @@ int main(int argc, char** argv)
     print_tree(tree);
     if (findArg(argc, argv, "-i")) {
 		FRAME* frame = new_frame();
-		
 		VALUE* status = interpret(tree, frame);
 		printf("Program exited with status code %d.\n", status->v.integer);
       
