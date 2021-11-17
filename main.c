@@ -56,6 +56,12 @@ char *named(int t)
     }
 }
 
+enum valuetype {
+   mmcINT = 1,
+   mmcBOOL = 2,
+   mmcSTRING = 3
+};
+
 void print_leaf(NODE *tree, int level)
 {
     TOKEN *t = (TOKEN *)tree;
@@ -97,17 +103,20 @@ extern NODE* ans;
 extern void init_symbtable(void);
 
 enum tac_op
-  {
-   tac_plus = 1,
-   tac_load = 2,
-   tac_return = 3,
-   tac_minus = 4,
-   tac_divide = 5,
-   tac_multiply = 6,
-   tac_mod = 7
-  };
+{
+	tac_plus = 1,
+	tac_load = 2,
+	tac_return = 3,
+	tac_minus = 4,
+	tac_divide = 5,
+	tac_multiply = 6,
+	tac_mod = 7,
+	tac_assign = 8,
+	tac_declare = 9,
+	tac_variable = 10
+};
 
-char* tac_ops[] = {"NOOP","ADD", "LOAD", "RETURN", "SUBTRACT", "DIVIDE", "MULTIPLY", "MOD"};
+char* tac_ops[] = {"NOOP","ADD", "LOAD", "RETURN", "SUBTRACT", "DIVIDE", "MULTIPLY", "MOD", "ASSIGN", "DECLARE", "VARIABLE"};
 
 typedef struct value {
   int          type;
@@ -216,6 +225,17 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 			ans->dst = dst;
 			return ans;
 
+		case tac_declare:
+			ans->dst = dst;
+			//ans->src1 = src1;
+			return ans;
+		case tac_assign:
+			ans->dst = dst;
+			ans->src1 = src1;
+			return ans;
+		case tac_variable:
+			ans->dst = dst;
+			return ans;
 		default:
 			return NULL;
   	}
@@ -240,6 +260,10 @@ void mmc_print_ic(TAC* i)
 		printf("%s %s\n",
 		tac_ops[i->op],
 		i->dst->lexeme);
+	} else if (i->op == tac_declare){
+		printf("%s %s\n", tac_ops[i->op], i->dst->lexeme);
+	} else if (i->op == tac_assign){
+		printf("%s %s, %s\n", tac_ops[i->op], i->src1->lexeme, i->dst->lexeme);
 	}
 }
 
@@ -335,17 +359,37 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 			attach_tac(left_mod, right_mod);
 			right_mod->next = mod;
 			return left_mod;
+
+		case 59: //;
+			printf("Sequence found.\n");
+			TAC* left_seq = mmc_icg(ast->left);
+			TAC* right_seq = mmc_icg(ast->right); // Right block
+			attach_tac(left_seq, right_seq);
+			return left_seq;
+		case ASSIGNMENT: // ~
+			printf("Assignment found.\n");
+			return mmc_icg(ast->right);
+		case 61: // =
+			printf("Equals found.\n");
+			
+			TAC* variable = mmc_icg(ast->left);;
+			TAC* declare = new_tac(tac_declare, NULL, NULL, variable->dst);
+			TAC* load = mmc_icg(ast->right);
+			TAC* assign = new_tac(tac_assign, declare->dst, NULL, load->dst);
+			attach_tac(load, declare);
+			declare->next = assign;
+			return load;
+		case IDENTIFIER:
+			printf("Identifier found.\n");
+
+			return new_tac(tac_variable, NULL, NULL, (TOKEN*)ast);
 		default:
 			printf("unknown type code %d (%p) in mmc_icg\n",ast->type,ast);
 			return NULL;
   	}
 };
 
-enum valuetype {
-   mmcINT = 1,
-   mmcBOOL = 2,
-   mmcSTRING = 3
-};
+
 
 VALUE* addValues(VALUE* leftValue, VALUE* rightValue){
   leftValue->v.integer = leftValue->v.integer + rightValue->v.integer;
