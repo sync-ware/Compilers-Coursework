@@ -3,8 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-MC* new_mci(char* s)
-{
+MC* new_mci(char* s){
 	MC* ans = (MC*)malloc(sizeof(MC));
 	if (ans==NULL) {
 		printf("Error! memory not allocated.");
@@ -29,8 +28,7 @@ MC* three_address_generate(char* op, TAC* i){
 	return ins;
 }
 
-MC* mmc_mcg(TAC* i)
-{
+MC* mmc_mcg(TAC* i){
 	if (i==NULL) return NULL;
 	switch (i->op) {
 		case tac_plus:
@@ -88,7 +86,6 @@ MC* mmc_mcg(TAC* i)
 	}
 }
 
-void mmc_print_mc(MC* i)
-{
+void mmc_print_mc(MC* i){
   	for(;i!=NULL;i=i->next) printf("%s\n",i->insn);
 }

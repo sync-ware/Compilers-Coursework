@@ -16,7 +16,10 @@ enum tac_op {
 	tac_mod = 7,
 	tac_assign = 8,
 	tac_declare = 9,
-	tac_variable = 10
+	tac_variable = 10,
+    tac_proc = 11,
+    tac_arg = 12,
+    tac_proc_end = 13
 };
 
 static char* tac_ops[] = {
@@ -30,7 +33,10 @@ static char* tac_ops[] = {
     "MOD", 
     "ASSIGN", 
     "DECLARE", 
-    "VARIABLE"
+    "VARIABLE",
+    "PROC",
+    "ARG",
+    "END PROC"
 };
 
 typedef struct tac {

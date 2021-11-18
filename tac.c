@@ -74,13 +74,26 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 		case tac_variable:
 			ans->dst = dst;
 			return ans;
+		case tac_proc:
+			ans->dst = dst;
+			ans->src1 = src1;
+			return ans;
+		case tac_arg:
+			ans->dst = dst;
+			return ans;
+		case tac_proc_end:
+			return ans;
 		default:
 			return NULL;
   	}
-
 }
 
 void attach_tac(TAC* left, TAC* right){
+	// TAC* end_tac = left;
+	// while(end_tac->next != NULL){
+	// 	end_tac = end_tac->next;
+	// }
+	// end_tac->next = right;
 	if (left->next == NULL) {
 		left->next = right;
 	} else {
@@ -93,8 +106,23 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
   	switch (ast->type) {
 		case 68: //D
 			printf("Begin TAC Construction.\n");
+			TAC* proc_def = mmc_icg(ast->left);
+			TAC* proc_body = mmc_icg(ast->right);
+			proc_def->next = proc_body;
+			TAC* end_proc = new_tac(tac_proc_end, NULL, NULL, NULL);
+			attach_tac(proc_body, end_proc);
+			return proc_def;
+		case 100: //d
+			printf("Function definition.\n");
 			return mmc_icg(ast->right);
-
+		
+		case 70:; //F
+			TAC* proc = new_tac(tac_proc, mmc_icg(ast->left)->dst, NULL, mmc_icg(ast->right)->dst);
+			return proc;
+		case VOID:;
+			TOKEN* void_token = (TOKEN*)ast;
+			TAC* void_tac = new_tac(tac_arg, NULL, NULL, void_token);
+			return void_tac;
 		case RETURN:
 			printf("Return found.\n");
 			TAC* tac_process_to_return = mmc_icg(ast->left);
@@ -185,12 +213,11 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 		case 61: // =
 			printf("Equals found.\n");
 			
-			TAC* variable = mmc_icg(ast->left);;
+			TAC* variable = mmc_icg(ast->left);
 			TAC* declare = new_tac(tac_declare, NULL, NULL, variable->dst);
 			TAC* load = mmc_icg(ast->right);
-			TAC* assign = new_tac(tac_assign, declare->dst, NULL, load->dst);
-			attach_tac(load, declare);
-			declare->next = assign;
+			TAC* assign = new_tac(tac_assign, load->dst, NULL, declare->dst);
+			attach_tac(load, assign);
 			return load;
 		case IDENTIFIER:
 			printf("Identifier found.\n");
@@ -222,7 +249,11 @@ void mmc_print_ic(TAC* i)
 		i->dst->lexeme);
 	} else if (i->op == tac_declare){
 		printf("%s %s\n", tac_ops[i->op], i->dst->lexeme);
-	} else if (i->op == tac_assign){
+	} else if (i->op == tac_assign || i->op == tac_proc){
 		printf("%s %s, %s\n", tac_ops[i->op], i->src1->lexeme, i->dst->lexeme);
+	} else if (i->op == tac_proc_end){
+		printf("%s\n", tac_ops[i->op]);
+	} else if (i->op == tac_variable){
+		printf("%s %d, %s\n", tac_ops[i->op], 0, i->dst->lexeme);
 	}
 }

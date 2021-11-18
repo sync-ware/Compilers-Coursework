@@ -135,6 +135,7 @@ int main(int argc, char** argv)
     }
     if (findArg(argc, argv, "-m")) {
 		TAC* tac = mmc_icg(tree);
+		printf("\n");
 		mmc_print_ic(tac);
 
 		if (findArg(argc, argv, "-a")) { //Assembly

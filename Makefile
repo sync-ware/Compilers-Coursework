@@ -23,6 +23,6 @@ depend:
 	${CC} -M $(SRCS) > .deps
 	cat Makefile .deps > makefile
 
-dist:	symbol_table.c nodes.c tac.c main.c Makefile C.flex C.y global.h nodes.h token.h tac.h mc.h interpreter.h 
+dist:	symbol_table.c nodes.c tac.c mc.c interpreter.c main.c Makefile C.flex C.y global.h nodes.h token.h tac.h mc.h interpreter.h
 	tar cvfz mycc.tgz symbol_table.c nodes.c tac.c mc.c interpreter.c main.c Makefile C.flex C.y \
 		global.h nodes.h token.h tac.h mc.h interpreter.h
