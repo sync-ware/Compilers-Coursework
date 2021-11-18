@@ -1,3 +1,5 @@
+#ifndef __NODE_H
+#define __NODE_H
 #include "token.h"
 
 typedef struct node {
@@ -8,3 +10,5 @@ typedef struct node {
 
 NODE* make_leaf(TOKEN*);
 NODE* make_node(int, NODE*, NODE*);
+
+#endif

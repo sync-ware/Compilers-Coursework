@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "tac.h"
-#include "global.h"
+//#include "global.h"
 #include "C.tab.h"
 #include <stdio.h>
 
