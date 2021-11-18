@@ -1,3 +1,6 @@
+#ifndef __TAC_H
+#define __TAC_H
+
 #include "token.h"
 #include "nodes.h"
 
@@ -41,3 +44,6 @@ typedef struct tac {
 TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst);
 void attach_tac(TAC* left, TAC* right);
 TAC* mmc_icg(NODE* ast);
+void mmc_print_ic(TAC* i);
+
+#endif

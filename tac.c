@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "tac.h"
-//#include "global.h"
+#include "global.h"
 #include "C.tab.h"
 #include <stdio.h>
 
@@ -200,4 +200,29 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 			printf("unknown type code %d (%p) in mmc_icg\n",ast->type,ast);
 			return NULL;
   	}
-};
+}
+
+void mmc_print_ic(TAC* i)
+{
+  	for(;i!=NULL;i=i->next)
+	if (i->op == tac_plus || i->op == tac_minus || i->op == tac_divide || i->op == tac_multiply || i->op == tac_mod){
+		printf("%s %s, %s, %s\n",
+		tac_ops[i->op], // need to range check!
+		i->src1->lexeme,
+		i->src2->lexeme,
+		i->dst->lexeme);
+	} else if (i->op == tac_load){
+		printf("%s %s, %d\n",
+		tac_ops[i->op],
+		i->dst->lexeme,
+		i->dst->value);
+	} else if (i->op == tac_return){
+		printf("%s %s\n",
+		tac_ops[i->op],
+		i->dst->lexeme);
+	} else if (i->op == tac_declare){
+		printf("%s %s\n", tac_ops[i->op], i->dst->lexeme);
+	} else if (i->op == tac_assign){
+		printf("%s %s, %s\n", tac_ops[i->op], i->src1->lexeme, i->dst->lexeme);
+	}
+}
