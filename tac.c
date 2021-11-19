@@ -15,35 +15,7 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 	}
 	ans->op = op;
   	switch (op) {
-		case tac_plus:
-			ans->src1 = src1;
-			ans->src2 = src2;
-			ans->dst = dst;
-			return ans;
-
-		case tac_minus:
-			ans->src1 = src1;
-			ans->src2 = src2;
-			ans->dst = dst;
-			return ans;
-
-		case tac_divide:
-			ans->src1 = src1;
-			ans->src2 = src2;
-			ans->dst = dst;
-			return ans;
-
-		case tac_multiply:
-			ans->src1 = src1;
-			ans->src2 = src2;
-			ans->dst = dst;
-			return ans;
-
-		case tac_mod:
-			ans->src1 = src1;
-			ans->src2 = src2;
-			ans->dst = dst;
-			return ans;
+		
 
 		case tac_load:
 			ans->dst = dst;
@@ -59,45 +31,27 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 			}
 			return ans;
 
-		case tac_return:
-			ans->dst = dst;
-			return ans;
-
-		case tac_declare:
-			ans->dst = dst;
-			//ans->src1 = src1;
-			return ans;
-		case tac_assign:
-			ans->dst = dst;
-			ans->src1 = src1;
-			return ans;
-		case tac_variable:
-			ans->dst = dst;
-			return ans;
-		case tac_proc:
-			ans->dst = dst;
-			ans->src1 = src1;
-			return ans;
-		case tac_arg:
-			ans->dst = dst;
-			return ans;
-		case tac_proc_end:
-			return ans;
 		default:
-			return NULL;
+			ans->dst = dst;
+			ans->src1 = src1;
+			ans->src2 = src2;
+			return ans;
   	}
 }
 
 void attach_tac(TAC* left, TAC* right){
-	// TAC* end_tac = left;
-	// while(end_tac->next != NULL){
-	// 	end_tac = end_tac->next;
-	// }
-	// end_tac->next = right;
 	if (left->next == NULL) {
 		left->next = right;
 	} else {
 		attach_tac(left->next, right);
+	}
+}
+
+TAC* avoid_variable_defs(TAC* start_tac){
+	if (start_tac->op != tac_variable){
+		return start_tac;
+	} else {
+		avoid_variable_defs(start_tac->next);
 	}
 }
 
@@ -126,9 +80,16 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 		case RETURN:
 			printf("Return found.\n");
 			TAC* tac_process_to_return = mmc_icg(ast->left);
+			
 			TAC* ret = new_tac(tac_return, NULL, NULL, tac_process_to_return->dst);
 			attach_tac(tac_process_to_return, ret);
 			return tac_process_to_return;
+			// if (tac_process_to_return->op != tac_variable){
+			// 	attach_tac(tac_process_to_return, ret);
+			// 	return tac_process_to_return;
+			// } else {
+			// 	return ret;
+			// }
 
 		case LEAF:
 			printf("Leaf found.\n");
@@ -209,7 +170,13 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 			return left_seq;
 		case ASSIGNMENT: // ~
 			printf("Assignment found.\n");
-			return mmc_icg(ast->right);
+			if (ast->right->type == 61){ // if equals
+				return mmc_icg(ast->right);
+			} else {
+				TAC* variable_declare = new_tac(tac_assign, NULL, NULL, mmc_icg(ast->right)->dst);
+				return variable_declare;
+			}
+			
 		case 61: // =
 			printf("Equals found.\n");
 			
@@ -249,11 +216,17 @@ void mmc_print_ic(TAC* i)
 		i->dst->lexeme);
 	} else if (i->op == tac_declare){
 		printf("%s %s\n", tac_ops[i->op], i->dst->lexeme);
-	} else if (i->op == tac_assign || i->op == tac_proc){
+	}else if (i->op == tac_assign){
+		if (i->src1 != NULL){
+			printf("%s %s, %s\n", tac_ops[i->op], i->src1->lexeme, i->dst->lexeme);
+		} else {
+			printf("%s %d, %s\n", tac_ops[i->op], 0, i->dst->lexeme);
+		}
+	} else if (i->op == tac_proc){
 		printf("%s %s, %s\n", tac_ops[i->op], i->src1->lexeme, i->dst->lexeme);
 	} else if (i->op == tac_proc_end){
 		printf("%s\n", tac_ops[i->op]);
-	} else if (i->op == tac_variable){
-		printf("%s %d, %s\n", tac_ops[i->op], 0, i->dst->lexeme);
-	}
+	} //else if (i->op == tac_variable){
+	// 	printf("%s %d, %s\n", tac_ops[i->op], 0, i->dst->lexeme);
+	// }
 }
