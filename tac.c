@@ -14,16 +14,13 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 		exit(0);
 	}
 	ans->op = op;
-	// char* address = (char*)malloc(sizeof(char)*4);
-	// char* address_num = (char*)malloc(sizeof(char)*8);
+	char address[4] = "$t";
+	char address_num[8];
   	switch (op) {
 		case tac_load:
 			ans->dst = dst;
 			dst->lexeme = (char*)malloc(4*sizeof(char));
-			
-			char address_num[8];
-			char address[4] = "$t";
-			//strncat(address, "$t", 3);
+
 			if (availableAddresses > 0){
 				sprintf(address_num, "%d", MAX_ADDRESSES-availableAddresses);
 				strcpy(dst->lexeme, address);
@@ -39,13 +36,11 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 			ans->src1 = src1;
 			ans->dst = dst;
 			dst->lexeme = (char*)malloc(4*sizeof(char));
-			char address_num_lw[8];
-			char address_lw[4] = "$t";
-			//strncat(address, "$t", 3);
+
 			if (availableAddresses > 0){
-				sprintf(address_num_lw, "%d", MAX_ADDRESSES-availableAddresses);
-				strcpy(dst->lexeme, address_lw);
-				strncat(dst->lexeme, address_num_lw, 1);
+				sprintf(address_num, "%d", MAX_ADDRESSES-availableAddresses);
+				strcpy(dst->lexeme, address);
+				strncat(dst->lexeme, address_num, 1);
 				availableAddresses--;
 			}
 			return ans;
@@ -205,7 +200,7 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 			variable->next = load;
 			attach_tac(load, assign);
 			return variable;
-			
+
 		case IDENTIFIER:
 			printf("Identifier found.\n");
 

@@ -110,11 +110,11 @@ int findArg(int argc, char** argv, char* elem)
 void write_to_file(MC* i){
 	FILE* fptr;
 	fptr = fopen("output.asm", "w");
-	fprintf(fptr, "%s\n", ".globl main\n.text\nmain:");
+	fprintf(fptr, "%s\n", ".globl main\n.text\n");
 	for(;i!=NULL;i=i->next) {
 		fprintf(fptr,"%s\n",i->insn);
 	}
-	fprintf(fptr, "%s\n", "li $v0, 10\nsyscall");
+	//fprintf(fptr, "%s\n", "li $v0, 10\nsyscall");
 	fclose(fptr);
 }
 

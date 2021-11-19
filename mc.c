@@ -16,34 +16,57 @@ MC* new_mci(char* s){
 }
 
 MC* three_address_generate(char* op, TAC* i){
-	char str[50];
+	char str[50] = "";
 	strncat(str, op, 5);
 	strncat(str, i->dst->lexeme, strlen(i->dst->lexeme)+1);
 	strncat(str, ", ", 3);
-	strncat(str, i->src1->lexeme, strlen(i->dst->lexeme)+1);
+	strncat(str, i->src1->lexeme, strlen(i->src1->lexeme)+1);
 	strncat(str, ", ", 3);
-	strncat(str, i->src2->lexeme, strlen(i->dst->lexeme)+1);
+	strncat(str, i->src2->lexeme, strlen(i->src2->lexeme)+1);
 	MC* ins = new_mci(str);
 	ins->next = mmc_mcg(i->next);
 	return ins;
 }
 
+int find_word(char* words[], char* word, int length){
+	for(int x = 0; x < length; x++){
+		if (strcmp(word, words[x]) == 0){
+			return 1;
+		}
+	}
+	return 0;
+}
+
+void attach_ins(MC* left, MC* right){
+	if (left->next == NULL){
+		left->next = right;
+	} else {
+		attach_ins(left->next, right);
+	}
+}
+
+
+char* words[10];
+int word_count = 0;
+
 MC* mmc_mcg(TAC* i){
 	if (i==NULL) return NULL;
+	char* str_ins = malloc(sizeof(char)*20);
+	MC* ins;
 	switch (i->op) {
 		case tac_plus:
 			return three_address_generate("add ", i);
 
 		case tac_load:;
-			char str_load[50] = "li ";
-			strncat(str_load, i->dst->lexeme, strlen(i->dst->lexeme)+1);
-			strncat(str_load, ", ", 3);
+			strncat(str_ins, "li ", 4);
+			strncat(str_ins, i->dst->lexeme, strlen(i->dst->lexeme)+1);
+			strncat(str_ins, ", ", 3);
 			char raw_val[8]; 
 			sprintf(raw_val, "%d", i->dst->value);
-			strncat(str_load, raw_val, 8);
-			MC* ins_load = new_mci(str_load);
-			ins_load->next = mmc_mcg(i->next);
-			return ins_load;
+			strncat(str_ins, raw_val, 9);
+			ins = new_mci(str_ins);
+			ins->next = mmc_mcg(i->next);
+			return ins;
 
 		case tac_minus:;
 			return three_address_generate("sub ", i);
@@ -52,28 +75,28 @@ MC* mmc_mcg(TAC* i){
 			return three_address_generate("mul ", i);
 
 		case tac_divide:;
-			char str_div[50] = "div ";
-			strncat(str_div, i->src1->lexeme, strlen(i->src1->lexeme)+1);
-			strncat(str_div, ", ", 3);
-			strncat(str_div, i->src2->lexeme, strlen(i->src2->lexeme)+1);
-			strncat(str_div, "\n", 2);
-			strncat(str_div, "mflo ", 6); // Qoutient goes into register $hi, so we need to move it into destination
-			strncat(str_div, i->dst->lexeme, strlen(i->dst->lexeme)+1);
-			MC* ins_div = new_mci(str_div);
-			ins_div->next = mmc_mcg(i->next);
-			return ins_div;
+			strncat(str_ins, "div ", 5);
+			strncat(str_ins, i->src1->lexeme, strlen(i->src1->lexeme)+1);
+			strncat(str_ins, ", ", 3);
+			strncat(str_ins, i->src2->lexeme, strlen(i->src2->lexeme)+1);
+			strncat(str_ins, "\n", 2);
+			strncat(str_ins, "mflo ", 6); // Qoutient goes into register $hi, so we need to move it into destination
+			strncat(str_ins, i->dst->lexeme, strlen(i->dst->lexeme)+1);
+			ins = new_mci(str_ins);
+			ins->next = mmc_mcg(i->next);
+			return ins;
 		
 		case tac_mod:;
-			char str_mod[50] = "div ";
-			strncat(str_mod, i->src1->lexeme, strlen(i->src1->lexeme)+1);
-			strncat(str_mod, ", ", 3);
-			strncat(str_mod, i->src2->lexeme, strlen(i->src2->lexeme)+1);
-			strncat(str_mod, "\n", 2);
-			strncat(str_mod, "mfhi ", 6); // Remainder goes into register $lo, so we need to move it into destination
-			strncat(str_mod, i->dst->lexeme, strlen(i->dst->lexeme)+1);
-			MC* ins_mod = new_mci(str_mod);
-			ins_mod->next = mmc_mcg(i->next);
-			return ins_mod;
+			strncat(str_ins, "div ", 5);
+			strncat(str_ins, i->src1->lexeme, strlen(i->src1->lexeme)+1);
+			strncat(str_ins, ", ", 3);
+			strncat(str_ins, i->src2->lexeme, strlen(i->src2->lexeme)+1);
+			strncat(str_ins, "\n", 2);
+			strncat(str_ins, "mfhi ", 6); // Remainder goes into register $lo, so we need to move it into destination
+			strncat(str_ins, i->dst->lexeme, strlen(i->dst->lexeme)+1);
+			ins= new_mci(str_ins);
+			ins->next = mmc_mcg(i->next);
+			return ins;
 
 		case tac_return:
 			// char str_ret[50] = "move $v0, ";
@@ -83,21 +106,74 @@ MC* mmc_mcg(TAC* i){
 			return new_mci(""); // Temporary
 
 		case tac_proc:;
-			char str_proc[50];
-			strncat(str_proc, i->dst->lexeme, strlen(i->dst->lexeme)+1);
-			strncat(str_proc, ":\n", 3);
-			MC* ins_proc = new_mci(str_proc);
-			ins_proc->next = mmc_mcg(i->next);
-			return ins_proc;
+			strncat(str_ins, i->src1->lexeme, strlen(i->src1->lexeme)+1);
+			strncat(str_ins, ":", 2);
+			ins = new_mci(str_ins);
+			ins->next = mmc_mcg(i->next);
+			return ins;
 
-		// case tac_assign:
-		// 	char str_assign[50] = "sw ";
+		case tac_load_word:;
+			if (find_word(words, i->src1->lexeme, word_count) == 0){
+				words[word_count] = i->src1->lexeme;
+				word_count++;
+				//printf("%s\n", i->src1->lexeme);
+			}
+
+			strncat(str_ins, "lw ", 4);
+			strncat(str_ins, i->dst->lexeme, strlen(i->dst->lexeme)+1);
+			strncat(str_ins, ", ", 3);
+			strncat(str_ins, i->src1->lexeme, strlen(i->src1->lexeme)+1);
+			ins = new_mci(str_ins);
+			ins->next = mmc_mcg(i->next);
+			return ins;
+
+		case tac_store_word:;
+			strncat(str_ins, "sw ", 4);
+			strncat(str_ins, i->src1->lexeme, strlen(i->src1->lexeme)+1);
+			strncat(str_ins, ", ", 3);
+			strncat(str_ins, i->dst->lexeme, strlen(i->dst->lexeme)+1);
+			ins = new_mci(str_ins);
+			ins->next = mmc_mcg(i->next);
+			return ins;
+		
+		case tac_proc_end:;
+			return new_mci("");
+
 		default:
 			printf("unknown type code %d (%p) in mmc_mcg\n",i->op,i);
-			return NULL;
+		return NULL;
+	}
+	
+	
+	
+
+}
+
+MC* gen_words(int x){
+	char word_str[30] = "";
+	strncat(word_str, words[x], strlen(words[x])+1);
+	strncat(word_str, ": .word 0", 11);
+	MC* word = new_mci(word_str);
+	
+	if (x == word_count-1){
+		
+		return word;
+	} else {
+		word->next = gen_words(x+1);
+		return word;
 	}
 }
 
 void mmc_print_mc(MC* i){
+
+
+	MC* success_exit = new_mci("li $v0, 10");
+	MC* exit = new_mci("syscall");
+	success_exit->next = exit;
+	attach_ins(i, success_exit);
+	if (word_count > 0){
+		MC* start_word = gen_words(0);
+		exit->next = start_word;
+	}
   	for(;i!=NULL;i=i->next) printf("%s\n",i->insn);
 }
