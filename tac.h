@@ -4,7 +4,7 @@
 #include "token.h"
 #include "nodes.h"
 
-#define MAX_ADDRESSES 8
+#define MAX_ADDRESSES 16
 
 enum tac_op {
 	tac_plus = 1,
@@ -14,12 +14,13 @@ enum tac_op {
 	tac_divide = 5,
 	tac_multiply = 6,
 	tac_mod = 7,
-	tac_assign = 8,
+	tac_store_word = 8,
 	tac_declare = 9,
 	tac_variable = 10,
     tac_proc = 11,
     tac_arg = 12,
-    tac_proc_end = 13
+    tac_proc_end = 13,
+    tac_load_word = 14
 };
 
 static char* tac_ops[] = {
@@ -31,12 +32,13 @@ static char* tac_ops[] = {
     "DIVIDE", 
     "MULTIPLY", 
     "MOD", 
-    "ASSIGN", 
+    "STORE WORD", 
     "DECLARE", 
     "VARIABLE",
     "PROC",
     "ARG",
-    "END PROC"
+    "END PROC",
+    "LOAD WORD"
 };
 
 typedef struct tac {

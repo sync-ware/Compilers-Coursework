@@ -74,15 +74,27 @@ MC* mmc_mcg(TAC* i){
 			MC* ins_mod = new_mci(str_mod);
 			ins_mod->next = mmc_mcg(i->next);
 			return ins_mod;
+
 		case tac_return:
 			// char str_ret[50] = "move $v0, ";
 			// strncat(str_ret, i->dst->lexeme, strlen(i->dst->lexeme)+1);
 			// MC* ins_ret = new_mci(str_ret);
 			// return ins_ret;
 			return new_mci(""); // Temporary
-	default:
-		printf("unknown type code %d (%p) in mmc_mcg\n",i->op,i);
-		return NULL;
+
+		case tac_proc:;
+			char str_proc[50];
+			strncat(str_proc, i->dst->lexeme, strlen(i->dst->lexeme)+1);
+			strncat(str_proc, ":\n", 3);
+			MC* ins_proc = new_mci(str_proc);
+			ins_proc->next = mmc_mcg(i->next);
+			return ins_proc;
+
+		// case tac_assign:
+		// 	char str_assign[50] = "sw ";
+		default:
+			printf("unknown type code %d (%p) in mmc_mcg\n",i->op,i);
+			return NULL;
 	}
 }
 

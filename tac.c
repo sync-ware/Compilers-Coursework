@@ -5,7 +5,7 @@
 #include "C.tab.h"
 #include <stdio.h>
 
-int availableAddresses = 8;
+int availableAddresses = 16;
 
 TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 	TAC* ans = (TAC*)malloc(sizeof(TAC));
@@ -14,19 +14,38 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 		exit(0);
 	}
 	ans->op = op;
+	// char* address = (char*)malloc(sizeof(char)*4);
+	// char* address_num = (char*)malloc(sizeof(char)*8);
   	switch (op) {
-		
-
 		case tac_load:
 			ans->dst = dst;
 			dst->lexeme = (char*)malloc(4*sizeof(char));
+			
 			char address_num[8];
 			char address[4] = "$t";
-	
+			//strncat(address, "$t", 3);
 			if (availableAddresses > 0){
 				sprintf(address_num, "%d", MAX_ADDRESSES-availableAddresses);
 				strcpy(dst->lexeme, address);
 				strncat(dst->lexeme, address_num, 1);
+				availableAddresses--;
+			}
+			return ans;
+
+		case tac_load_word:
+			if (availableAddresses == MAX_ADDRESSES){
+				printf("First address\n");
+			}
+			ans->src1 = src1;
+			ans->dst = dst;
+			dst->lexeme = (char*)malloc(4*sizeof(char));
+			char address_num_lw[8];
+			char address_lw[4] = "$t";
+			//strncat(address, "$t", 3);
+			if (availableAddresses > 0){
+				sprintf(address_num_lw, "%d", MAX_ADDRESSES-availableAddresses);
+				strcpy(dst->lexeme, address_lw);
+				strncat(dst->lexeme, address_num_lw, 1);
 				availableAddresses--;
 			}
 			return ans;
@@ -71,7 +90,11 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 			return mmc_icg(ast->right);
 		
 		case 70:; //F
-			TAC* proc = new_tac(tac_proc, mmc_icg(ast->left)->dst, NULL, mmc_icg(ast->right)->dst);
+			TAC* proc = new_tac(tac_proc, NULL, NULL, mmc_icg(ast->right)->dst);
+			TOKEN* proc_name = (TOKEN*)malloc(sizeof(TOKEN));
+			//printf("%d\n", ast->left->left->type);
+			proc_name->lexeme = ((TOKEN*)ast->left->left)->lexeme;
+			proc->src1 = proc_name;
 			return proc;
 		case VOID:;
 			TOKEN* void_token = (TOKEN*)ast;
@@ -84,12 +107,6 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 			TAC* ret = new_tac(tac_return, NULL, NULL, tac_process_to_return->dst);
 			attach_tac(tac_process_to_return, ret);
 			return tac_process_to_return;
-			// if (tac_process_to_return->op != tac_variable){
-			// 	attach_tac(tac_process_to_return, ret);
-			// 	return tac_process_to_return;
-			// } else {
-			// 	return ret;
-			// }
 
 		case LEAF:
 			printf("Leaf found.\n");
@@ -168,32 +185,38 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 			TAC* right_seq = mmc_icg(ast->right); // Right block
 			attach_tac(left_seq, right_seq);
 			return left_seq;
+
 		case ASSIGNMENT: // ~
 			printf("Assignment found.\n");
 			if (ast->right->type == 61){ // if equals
 				return mmc_icg(ast->right);
 			} else {
-				TAC* variable_declare = new_tac(tac_assign, NULL, NULL, mmc_icg(ast->right)->dst);
+				TAC* variable_declare = new_tac(tac_declare, NULL, NULL, NULL);
 				return variable_declare;
 			}
+			
 			
 		case 61: // =
 			printf("Equals found.\n");
 			
 			TAC* variable = mmc_icg(ast->left);
-			TAC* declare = new_tac(tac_declare, NULL, NULL, variable->dst);
 			TAC* load = mmc_icg(ast->right);
-			TAC* assign = new_tac(tac_assign, load->dst, NULL, declare->dst);
+			TAC* assign = new_tac(tac_store_word, load->dst, NULL, variable->src1);
+			variable->next = load;
 			attach_tac(load, assign);
-			return load;
+			return variable;
+			
 		case IDENTIFIER:
 			printf("Identifier found.\n");
 
-			return new_tac(tac_variable, NULL, NULL, (TOKEN*)ast);
+			TOKEN* reg_id = (TOKEN*)malloc(sizeof(TAC));
+			//TAC* load_word_id = new_tac(tac_load_word, ());
+			return new_tac(tac_load_word, (TOKEN*)ast, NULL, reg_id);
 		default:
 			printf("unknown type code %d (%p) in mmc_icg\n",ast->type,ast);
 			return NULL;
   	}
+	  printf("Finish TAC Construction.\n");
 }
 
 void mmc_print_ic(TAC* i)
@@ -214,19 +237,15 @@ void mmc_print_ic(TAC* i)
 		printf("%s %s\n",
 		tac_ops[i->op],
 		i->dst->lexeme);
-	} else if (i->op == tac_declare){
-		printf("%s %s\n", tac_ops[i->op], i->dst->lexeme);
-	}else if (i->op == tac_assign){
+	}else if (i->op == tac_store_word){
 		if (i->src1 != NULL){
 			printf("%s %s, %s\n", tac_ops[i->op], i->src1->lexeme, i->dst->lexeme);
 		} else {
 			printf("%s %d, %s\n", tac_ops[i->op], 0, i->dst->lexeme);
 		}
-	} else if (i->op == tac_proc){
+	} else if (i->op == tac_proc || i->op == tac_load_word){
 		printf("%s %s, %s\n", tac_ops[i->op], i->src1->lexeme, i->dst->lexeme);
 	} else if (i->op == tac_proc_end){
 		printf("%s\n", tac_ops[i->op]);
-	} //else if (i->op == tac_variable){
-	// 	printf("%s %d, %s\n", tac_ops[i->op], 0, i->dst->lexeme);
-	// }
+	}
 }
