@@ -159,6 +159,20 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			VALUE* val = get_variable((TOKEN*)tree->left->left, frame);
 			val->v.integer = interpret(tree->right, frame)->v.integer;
 			return val;
+		case IF:
+			printf("If found\n");
+			VALUE* condition = interpret(tree->left, frame);
+			//printf("type: %d\n", condition->type);
+			if (condition->v.boolean){
+				printf("Condition true\n");
+				return interpret(tree->right, frame);
+			} else {
+				return NULL;
+			}
+		case ELSE:
+			printf("Else found\n");
+			return NULL;
+			
 		default:
 		break;
   	}

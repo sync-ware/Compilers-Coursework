@@ -2,19 +2,19 @@
 #include "nodes.h"
 
 enum valuetype {
-   mmcINT = 1,
-   mmcBOOL = 2,
-   mmcSTRING = 3
+	mmcINT = 1,
+	mmcBOOL = 2,
+	mmcSTRING = 3
 };
 
 typedef struct value {
-  int          type;
-  union {
-    int integer;
-    int boolean; // will need this soon
-    char* string;
-    void* function;
-  } v;
+	int type;
+	union {
+		int integer;
+		int boolean; // will need this soon
+		char* string;
+		void* function;
+	} v;
 } VALUE;
 
 typedef struct binding {
