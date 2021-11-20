@@ -30,9 +30,6 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 			return ans;
 
 		case tac_load_word:
-			if (availableAddresses == MAX_ADDRESSES){
-				printf("First address\n");
-			}
 			ans->src1 = src1;
 			ans->dst = dst;
 			dst->lexeme = (char*)malloc(4*sizeof(char));
@@ -61,12 +58,13 @@ void attach_tac(TAC* left, TAC* right){
 	}
 }
 
-TAC* avoid_variable_defs(TAC* start_tac){
-	if (start_tac->op != tac_variable){
-		return start_tac;
-	} else {
-		avoid_variable_defs(start_tac->next);
-	}
+TAC* arithmetic_tac(NODE* ast, int op){
+	TAC* left_operand = mmc_icg(ast->left);
+	TAC* right_operand = mmc_icg(ast->right);
+	TAC* operator = new_tac(op, left_operand->dst, right_operand->dst, left_operand->dst);
+	attach_tac(left_operand, right_operand);
+	attach_tac(right_operand, operator);
+	return left_operand;
 }
 
 TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need to jump to.
@@ -109,70 +107,25 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 
 		case 43: //+
 			printf("Plus found.\n");
-			TAC* left_plus = mmc_icg(ast->left);
-
-			TAC* right_plus = mmc_icg(ast->right);
-
-			TAC* add = new_tac(tac_plus, left_plus->dst, right_plus->dst, left_plus->dst);
-
-			// We must iterate through to the end of the left tacs.
-			attach_tac(left_plus, right_plus);
-			right_plus->next = add;
-			return left_plus;
+			return arithmetic_tac(ast, tac_plus);
 
 		case CONSTANT:
 			printf("Constant found.\n");
 			return new_tac(tac_load, NULL, NULL, (TOKEN *) ast);
 		case 45: //-
 		 	printf("Minus found.\n");
-		  	TAC* left_sub = mmc_icg(ast->left);
-
-			TAC* right_sub = mmc_icg(ast->right);
-
-			TAC* minus = new_tac(tac_minus, left_sub->dst, right_sub->dst, left_sub->dst);
-
-			// We must iterate through to the end of the left tacs.
-			attach_tac(left_sub, right_sub);
-			right_sub->next = minus;
-			return left_sub;
+			return arithmetic_tac(ast, tac_minus);
 		  
 		case 47: //(/)
 			printf("Divide found.\n");
-			TAC* left_div = mmc_icg(ast->left);
-
-			TAC* right_div = mmc_icg(ast->right);
-
-			TAC* divide = new_tac(tac_divide, left_div->dst, right_div->dst, left_div->dst);
-
-			// We must iterate through to the end of the left tacs.
-			attach_tac(left_div, right_div);
-			right_div->next = divide;
-			return left_div;
+			return arithmetic_tac(ast, tac_divide);
 		  
 		case 42: //(*)
 			printf("Multiplication found.\n");
-		  	TAC* left_multi = mmc_icg(ast->left);
-
-			TAC* right_multi = mmc_icg(ast->right);
-
-			TAC* multiply = new_tac(tac_multiply, left_multi->dst, right_multi->dst, left_multi->dst);
-
-			// We must iterate through to the end of the left tacs.
-			attach_tac(left_multi, right_multi);
-			right_multi->next = multiply;
-			return left_multi;
+			return arithmetic_tac(ast, tac_multiply);
 		case 37: //%
 		  	printf("Modulo found.\n");
-		  	TAC* left_mod = mmc_icg(ast->left);
-
-			TAC* right_mod = mmc_icg(ast->right);
-
-			TAC* mod = new_tac(tac_mod, left_mod->dst, right_mod->dst, left_mod->dst);
-
-			// We must iterate through to the end of the left tacs.
-			attach_tac(left_mod, right_mod);
-			right_mod->next = mod;
-			return left_mod;
+			return arithmetic_tac(ast, tac_mod);
 
 		case 59: //;
 			printf("Sequence found.\n");
@@ -189,8 +142,7 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 				TAC* variable_declare = new_tac(tac_declare, NULL, NULL, NULL);
 				return variable_declare;
 			}
-			
-			
+
 		case 61: // =
 			printf("Equals found.\n");
 			
@@ -211,7 +163,6 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 			printf("unknown type code %d (%p) in mmc_icg\n",ast->type,ast);
 			return NULL;
   	}
-	  printf("Finish TAC Construction.\n");
 }
 
 void mmc_print_ic(TAC* i)

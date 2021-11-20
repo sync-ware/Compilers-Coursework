@@ -99,12 +99,12 @@ extern void init_symbtable(void);
 
 int findArg(int argc, char** argv, char* elem)
 {
-  for(int x = 1; x < argc; x++) {
-    if (strcmp(argv[x], elem) == 0) {
-      return 1;
-    }
-  }
-  return 0;
+	for(int x = 1; x < argc; x++) {
+		if (strcmp(argv[x], elem) == 0) {
+			return 1;
+		}
+	}
+	return 0;
 }
 
 void write_to_file(MC* i){
@@ -120,20 +120,21 @@ void write_to_file(MC* i){
 
 int main(int argc, char** argv)
 {
-    NODE* tree;
-    if (findArg(argc, argv, "-d")) yydebug = 1;
-    init_symbtable();
-    printf("--C COMPILER\n");
-    yyparse();
-    tree = ans;
-    printf("parse finished with %p\n", tree);
-    print_tree(tree);
-    if (findArg(argc, argv, "-i")) {
+	NODE* tree;
+	if (findArg(argc, argv, "-d")) yydebug = 1;
+	init_symbtable();
+	printf("--C COMPILER\n");
+	yyparse();
+	tree = ans;
+	printf("parse finished with %p\n", tree);
+	print_tree(tree);
+	if (findArg(argc, argv, "-i")) {
 		FRAME* frame = new_frame();
+		printf("\n");
 		VALUE* status = interpret(tree, frame);
-		printf("Program exited with status code %d.\n", status->v.integer);
-    }
-    if (findArg(argc, argv, "-m")) {
+		printf("Program exited with status code %d.\n\n", status->v.integer);
+	}
+	if (findArg(argc, argv, "-m")) {
 		TAC* tac = mmc_icg(tree);
 		printf("\n");
 		mmc_print_ic(tac);
@@ -144,7 +145,7 @@ int main(int argc, char** argv)
 			mmc_print_mc(mc);
 			write_to_file(mc);
 		}
-    }
+	}
 
     return 0;
 }
