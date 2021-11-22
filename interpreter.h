@@ -4,7 +4,8 @@
 enum valuetype {
 	mmcINT = 1,
 	mmcBOOL = 2,
-	mmcSTRING = 3
+	mmcSTRING = 3,
+	mmcFUNC = 4
 };
 
 typedef struct value {

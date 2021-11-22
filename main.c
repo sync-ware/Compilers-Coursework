@@ -132,6 +132,7 @@ int main(int argc, char** argv)
 		FRAME* frame = new_frame();
 		printf("\n");
 		VALUE* status = interpret(tree, frame);
+    //printf("Status achieved\n");
 		printf("Program exited with status code %d.\n\n", status->v.integer);
 	}
 	if (findArg(argc, argv, "-m")) {

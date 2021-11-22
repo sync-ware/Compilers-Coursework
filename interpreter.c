@@ -120,37 +120,35 @@ VALUE* interpret(NODE *tree, FRAME* frame)
   	switch(tree->type){
     	case 68: //D
       		printf("Begin Interpretation.\n");
+			interpret(tree->left, frame);
       		return interpret(tree->right, frame);
-    	break;
+		case 100: //d
+			printf("Function def found.\n");
+			TOKEN* tok = new_token(interpret(tree->left, frame)->v.integer);
+			tok->lexeme = interpret(tree->right->right, frame);
+			return declare_variable(tok, frame);
     	case RETURN:
       		printf("Return found.\n");
-      		return interpret(tree->left, frame); 
-    	break;
+			return interpret(tree->left, frame);
 		case LEAF:
 			printf("Leaf found.\n");
 			return interpret(tree->left, frame);
-		break;
 		case 43: //+
 			printf("Plus found.\n");
 			return addValues(interpret(tree->left, frame), interpret(tree->right, frame));
-		break;
 		case 45: //-
 			printf("Minus found.\n");
 			return minusValues(interpret(tree->left, frame), interpret(tree->right, frame));
-		break;
 		case 47: //(/)
 			printf("Divide found.\n");
 			return divideValues(interpret(tree->left, frame), interpret(tree->right, frame));
-		break;
 		case 42: //(*)
 			printf("Multiplication found.\n");
 			return multiplyValues(interpret(tree->left, frame), interpret(tree->right, frame));
-		break;
 		case 37: //%
 			printf("Modulo found.\n");
 			return moduloValues(interpret(tree->left, frame), interpret(tree->right, frame));
-		break;
-			case CONSTANT:;
+		case CONSTANT:;
 			TOKEN *t = (TOKEN *)tree;
 			printf("Constant found: %d.\n",t->value);
 			VALUE* value = (VALUE*)malloc(sizeof(VALUE));;
@@ -159,9 +157,13 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			return value;
 		case 59: // ;
 			printf("Sequence found\n");
-			interpret(tree->left, frame); // Go through and interpret the first part of the sequence
-			return interpret(tree->right, frame);	
-		case ASSIGNMENT:
+			VALUE* left_seq = interpret(tree->left, frame); // Go through and interpret the first part of the sequence
+			VALUE* right_seq = interpret(tree->right, frame);
+			if (left_seq != NULL){ // If left sequnce has a return value, we need to return this
+				return left_seq;
+			}
+			return right_seq;
+		case ASSIGNMENT: // ~
 			printf("Assignment found\n");
 			// Generate a token for the variable
 			TOKEN* token = new_token(interpret(tree->left, frame)->v.integer); // Type
@@ -171,7 +173,6 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			}else{ // If no value, default to 0;
 				token->value = 0;
 			}
-
 			return declare_variable(token, frame);
 		case INT:
 			printf("Int type found.\n");
@@ -203,28 +204,33 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 		case IF:
 			printf("If found\n");
 			VALUE* condition = interpret(tree->left, frame);
+			FRAME* new_scope = new_frame();
+			new_scope->next = frame;
 			//printf("type: %d\n", condition->type);
 			if (condition->v.boolean){
 				printf("Condition true\n");
 				if (tree->right->type == ELSE){
-					return interpret(tree->right->left, frame);
+					// If body is in this part of the tree if ELSE exists
+					return interpret(tree->right->left, new_scope);
 				} else {
-					return interpret(tree->right, frame);
+					// If body here if no ELSE exists
+					return interpret(tree->right, new_scope);
 				}
-				
 			} else {
 				printf("Condition false\n");
 				if (tree->right->type == ELSE){
-					return interpret(tree->right, frame);
+					
+					return interpret(tree->right, new_scope);
 				} else {
 					return NULL;
 				}
 			}
 		case ELSE:
 			printf("Else found\n");
+
 			return interpret(tree->right, frame);
 		
-		case EQ_OP:
+		case EQ_OP: // ==
 			return equality_calculator(EQ_OP, tree, frame);
 
 		case 62: // >
@@ -236,10 +242,10 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 		case GE_OP: // >=
 			return equality_calculator(GE_OP, tree, frame);
 		
-		case LE_OP:
+		case LE_OP: // <=-
 			return equality_calculator(LE_OP, tree, frame);
 
-		case NE_OP:
+		case NE_OP: // (!=)
 			return equality_calculator(NE_OP, tree, frame);
 		default:
 		break;

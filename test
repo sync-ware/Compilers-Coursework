@@ -1,9 +1,8 @@
+int hello(void){
+	return 1;
+}
+
 int main(void)
-{   int x = 2;
-	int y = 3;
-	if (x < y){
-		return 1;
-	} else {
-		return 0;
-	}
+{   
+	return 0;
 }
