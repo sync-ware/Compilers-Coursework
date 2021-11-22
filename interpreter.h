@@ -38,5 +38,7 @@ VALUE* moduloValues(VALUE* leftValue, VALUE* rightValue);
 
 VALUE* declare_variable(TOKEN* var, FRAME* frame);
 VALUE* get_variable(TOKEN* var, FRAME* frame);
+VALUE* new_value(int type, void* value);
+VALUE* equality_calculator(int type, NODE* tree, FRAME* frame);
 
 VALUE* interpret(NODE *tree, FRAME* frame);

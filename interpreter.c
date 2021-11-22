@@ -74,6 +74,47 @@ VALUE* get_variable(TOKEN* var, FRAME* frame){
 	return NULL;
 }
 
+VALUE* new_value(int type, void* value){
+	VALUE* val = (VALUE*)malloc(sizeof(VALUE));
+	val->type = type;
+	if (type == mmcINT || type == mmcBOOL){
+		val->v.integer = *((int*)value);
+	} 
+	return val;
+}
+
+VALUE* equality_calculator(int type, NODE* tree, FRAME* frame){
+	VALUE* left_operand = interpret(tree->left, frame);
+	VALUE* right_operand = interpret(tree->right, frame);
+	int equality;
+	if (left_operand->type == mmcINT && right_operand->type == mmcINT){
+		printf("Both ints\n");
+		switch(type){
+			case EQ_OP:
+				equality = left_operand->v.integer == right_operand->v.integer;
+				break;
+			case 62:
+				equality = left_operand->v.integer > right_operand->v.integer;
+				break;
+			case 60:
+				equality = left_operand->v.integer < right_operand->v.integer;
+				break;
+			case GE_OP:
+				equality = left_operand->v.integer >= right_operand->v.integer;
+				break;
+			case LE_OP:
+				equality = left_operand->v.integer <= right_operand->v.integer;
+				break;
+			case NE_OP:
+				equality = left_operand->v.integer != right_operand->v.integer;
+				break;
+		}
+		return new_value(mmcBOOL, (void*)&equality);
+		
+	}
+	return NULL;
+}
+
 VALUE* interpret(NODE *tree, FRAME* frame)
 {
   	switch(tree->type){
@@ -165,14 +206,41 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			//printf("type: %d\n", condition->type);
 			if (condition->v.boolean){
 				printf("Condition true\n");
-				return interpret(tree->right, frame);
+				if (tree->right->type == ELSE){
+					return interpret(tree->right->left, frame);
+				} else {
+					return interpret(tree->right, frame);
+				}
+				
 			} else {
-				return NULL;
+				printf("Condition false\n");
+				if (tree->right->type == ELSE){
+					return interpret(tree->right, frame);
+				} else {
+					return NULL;
+				}
 			}
 		case ELSE:
 			printf("Else found\n");
-			return NULL;
-			
+			return interpret(tree->right, frame);
+		
+		case EQ_OP:
+			return equality_calculator(EQ_OP, tree, frame);
+
+		case 62: // >
+			return equality_calculator(62, tree, frame);
+
+		case 60: // <
+			return equality_calculator(60, tree, frame);
+
+		case GE_OP: // >=
+			return equality_calculator(GE_OP, tree, frame);
+		
+		case LE_OP:
+			return equality_calculator(LE_OP, tree, frame);
+
+		case NE_OP:
+			return equality_calculator(NE_OP, tree, frame);
 		default:
 		break;
   	}
