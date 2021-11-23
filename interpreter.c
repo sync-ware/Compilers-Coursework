@@ -22,12 +22,14 @@ BINDING* new_binding(NODE* name, VALUE* val, BINDING* next){
 
 FRAME* extend_frame(FRAME* env, NODE* ids, NODE* args){
 	FRAME* new_env = new_frame();
+	
 	BINDING* bindings = NULL;
 	{ // Limit scope
 		NODE* ip;
 		NODE* ap;
-		for (ip = ids, ap = args; (ip != NULL) && (ap != NULL); ip->right, ap->right){
-			bindings = new_binding(ip->left, interpret(ap->left, env), bindings);
+		for (ip = ids, ap = args; (ip != NULL) && (ap != NULL); ip = ip->right, ap = ap->right){
+
+			bindings = new_binding(ip->right->left, interpret(ap->left, env), bindings);
 		}
 	}
 	new_env->binding = bindings;
@@ -39,6 +41,7 @@ VALUE* lexical_call_method(TOKEN* name, NODE* args, FRAME* frame){
 	CLOSURE* f = generate_closure(name, frame);
 	FRAME* new_env = extend_frame(frame, f->args, args);
 	new_env->next = f->frame;
+	printf("Body type: %d\n", f->body->type);
 	return interpret(f->body, new_env);
 }
 
@@ -97,7 +100,6 @@ VALUE* declare_function(NODE* func, FRAME* frame){
 		value->type = mmcFUNC;
 		value->v.function = (void*)func;
 		TOKEN* token = new_token(mmcINT);
-		//printf("Name: %s\n", interpret(func->left->right->left, frame)->v.string);
 		token->lexeme = interpret(func->left->right->left, frame)->v.string;
 		new->name = token;
 		new->val = value;
@@ -111,11 +113,12 @@ CLOSURE* generate_closure(TOKEN* name, FRAME* frame){
 	VALUE* val = get_variable(name, frame);
 	CLOSURE* closure = (CLOSURE*)malloc(sizeof(CLOSURE));
 	NODE* func_def = (NODE*)val->v.function;
-	// printf("Closure generated\n");
+
 	closure->code = func_def;
 	closure->frame = frame;
 	closure->body = func_def->right;
 	closure->args = func_def->left->right->right;
+	//printf("Argument type: %d\n", func_def->left->right->right->type);
 	
 	return closure;
 }
@@ -140,9 +143,12 @@ VALUE* get_variable(TOKEN* var, FRAME* frame){
 VALUE* new_value(int type, void* value){
 	VALUE* val = (VALUE*)malloc(sizeof(VALUE));
 	val->type = type;
+	val->is_func_ret = 0;
 	if (type == mmcINT || type == mmcBOOL){
 		val->v.integer = *((int*)value);
-	} 
+	} else if (type == mmcSTRING){
+		val->v.string = *((char**)value);
+	}
 	return val;
 }
 
@@ -192,7 +198,9 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 		// 	return declare_variable(tok, frame);
     	case RETURN:
       		printf("Return found.\n");
-			return interpret(tree->left, frame);
+			VALUE* ret = interpret(tree->left, frame);
+			ret->is_func_ret = 1;
+			return ret;
 		case LEAF:
 			printf("Leaf found.\n");
 			return interpret(tree->left, frame);
@@ -214,14 +222,16 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 		case CONSTANT:;
 			TOKEN *t = (TOKEN *)tree;
 			printf("Constant found: %d.\n",t->value);
-			VALUE* value = (VALUE*)malloc(sizeof(VALUE));;
-			value->type = mmcINT;
-			value->v.integer = t->value;
-			return value;
+			// VALUE* value = (VALUE*)malloc(sizeof(VALUE));;
+			// value->type = mmcINT;
+			// value->v.integer = t->value;
+			return new_value(mmcINT, (void*)&t->value);
 		case 59: // ;
 			printf("Sequence found\n");
 			VALUE* left_seq = interpret(tree->left, frame); // Go through and interpret the first part of the sequence
-			if (left_seq != NULL){ // If left sequnce has a return value, we need to return this
+			//printf("Func type: %d\n", left_seq->is_func_ret);
+			if (left_seq != NULL && left_seq->is_func_ret == 1){ // If left sequnce has a return value, we need to return this
+				printf("left_seq: %d\n", left_seq->v.integer);
 				return left_seq;
 			}
 			VALUE* right_seq = interpret(tree->right, frame);
@@ -252,7 +262,8 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			VALUE* int_value = (VALUE*)malloc(sizeof(VALUE));
 			int_value->type=mmcINT;
 			int_value->v.integer = mmcINT;
-			return int_value;
+			int type = mmcINT;
+			return new_value(mmcINT, (void*)&type);
 		case IDENTIFIER:
 			printf("Identifier found\n");
 			
@@ -264,12 +275,12 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 				VALUE* id_val = (VALUE*)malloc(sizeof(VALUE));
 				id_val->type = mmcSTRING;
 				id_val->v.string = id->lexeme;
-				return id_val;
+				return new_value(mmcSTRING, (void*)&id->lexeme);
 			} else {
 				printf("Variable found\n");
 				return found_id;
 			}
-		case 61:
+		case 61: // =
 			printf("Equals found\n");
 			VALUE* val = get_variable((TOKEN*)tree->left->left, frame);
 			val->v.integer = interpret(tree->right, frame)->v.integer;

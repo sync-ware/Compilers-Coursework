@@ -1,8 +1,9 @@
 int hello(int y){
+	y = y + 1;
 	return y*2;
 }
 
 int main(void)
-{   int x = hello(4);
+{   int x = hello(5);
 	return x;
 }

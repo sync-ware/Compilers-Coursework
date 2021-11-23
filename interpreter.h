@@ -10,6 +10,7 @@ enum valuetype {
 
 typedef struct value {
 	int type;
+	int is_func_ret;
 	union {
 		int integer;
 		int boolean; // will need this soon
