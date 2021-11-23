@@ -1,8 +1,8 @@
-int hello(void){
-	return 1;
+int hello(int y){
+	return y*2;
 }
 
 int main(void)
-{   
-	return 0;
+{   int x = hello(4);
+	return x;
 }

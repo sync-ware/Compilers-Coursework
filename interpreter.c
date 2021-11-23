@@ -34,11 +34,12 @@ FRAME* extend_frame(FRAME* env, NODE* ids, NODE* args){
 	return new_env;
 }
 
-VALUE* lexical_call_method(TOKEN* name, NODE* args, FRAME* env){
-	CLOSURE* f;
-	FRAME* new_env = extend_frame(env, NULL, args);
+VALUE* lexical_call_method(TOKEN* name, NODE* args, FRAME* frame){
+	printf("Calling: %s\n", name->lexeme);
+	CLOSURE* f = generate_closure(name, frame);
+	FRAME* new_env = extend_frame(frame, f->args, args);
 	new_env->next = f->frame;
-	return interpret(f->code, new_env);
+	return interpret(f->body, new_env);
 }
 
 VALUE* add_values(VALUE* left_operand, VALUE* right_operand){
@@ -88,7 +89,39 @@ VALUE* declare_variable(TOKEN* var, FRAME* frame){
 	//error("Binding failed\n");
 }
 
+VALUE* declare_function(NODE* func, FRAME* frame){
+	BINDING* bindings = frame->binding;
+	BINDING* new = (BINDING*)malloc(sizeof(BINDING));
+	if (new != 0){
+		VALUE* value = (VALUE*)malloc(sizeof(VALUE));
+		value->type = mmcFUNC;
+		value->v.function = (void*)func;
+		TOKEN* token = new_token(mmcINT);
+		//printf("Name: %s\n", interpret(func->left->right->left, frame)->v.string);
+		token->lexeme = interpret(func->left->right->left, frame)->v.string;
+		new->name = token;
+		new->val = value;
+		new->next = bindings;
+		frame->binding = new;
+		return (VALUE*)0;
+	}
+}
+
+CLOSURE* generate_closure(TOKEN* name, FRAME* frame){
+	VALUE* val = get_variable(name, frame);
+	CLOSURE* closure = (CLOSURE*)malloc(sizeof(CLOSURE));
+	NODE* func_def = (NODE*)val->v.function;
+	// printf("Closure generated\n");
+	closure->code = func_def;
+	closure->frame = frame;
+	closure->body = func_def->right;
+	closure->args = func_def->left->right->right;
+	
+	return closure;
+}
+
 VALUE* get_variable(TOKEN* var, FRAME* frame){
+	printf("Looking up variable: %s\n", var->lexeme);
 	while (frame != NULL){
 		BINDING* bindings = frame->binding;
 		while (bindings != NULL){
@@ -100,6 +133,7 @@ VALUE* get_variable(TOKEN* var, FRAME* frame){
 		}
 		frame = frame->next;
 	}
+	printf("Variable not found\n");
 	return NULL;
 }
 
@@ -148,9 +182,9 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 {
   	switch(tree->type){
     	case 68: //D
-      		printf("Begin Interpretation.\n");
-			//interpret(tree->left, frame);
-      		return interpret(tree->right, frame);
+      		printf("Func def found.\n");
+			return declare_function(tree, frame);
+      		
 		// case 100: //d
 		// 	printf("Function def found.\n");
 		// 	TOKEN* tok = new_token(interpret(tree->left, frame)->v.integer);
@@ -194,15 +228,25 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			return right_seq;
 		case ASSIGNMENT: // ~
 			printf("Assignment found\n");
-			// Generate a token for the variable
-			TOKEN* token = new_token(interpret(tree->left, frame)->v.integer); // Type
-			token->lexeme = interpret(tree->right->left, frame)->v.string; // Variable name
-			if (tree->right->right != NULL){ // Check to see if there is a value assigment.
-				token->value = interpret(tree->right->right, frame)->v.integer; // Value
-			}else{ // If no value, default to 0;
-				token->value = 0;
+			if (tree->right->type == ASSIGNMENT || tree->right->type == 68){
+				interpret(tree->left, frame);
+				interpret(tree->right, frame);
+				TOKEN* main = new_token(mmcINT);
+				main->lexeme = malloc(sizeof(char)*5);
+				main->lexeme = "main";
+				return lexical_call_method(main, NULL, frame);
+			} else {
+				// Generate a token for the variable
+				TOKEN* token = new_token(interpret(tree->left, frame)->v.integer); // Type
+				token->lexeme = interpret(tree->right->left, frame)->v.string; // Variable name
+				if (tree->right->right != NULL){ // Check to see if there is a value assigment.
+					token->value = interpret(tree->right->right, frame)->v.integer; // Value
+				}else{ // If no value, default to 0;
+					token->value = 0;
+				}
+				printf("Make new variable\n");
+				return declare_variable(token, frame);
 			}
-			return declare_variable(token, frame);
 		case INT:
 			printf("Int type found.\n");
 			VALUE* int_value = (VALUE*)malloc(sizeof(VALUE));
@@ -216,7 +260,7 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			printf("Id: %s\n", id->lexeme);
 			VALUE* found_id = get_variable(id, frame); // Check to see if it is already defined.
 			if (found_id == NULL){
-				printf("Make new variable\n");
+				
 				VALUE* id_val = (VALUE*)malloc(sizeof(VALUE));
 				id_val->type = mmcSTRING;
 				id_val->v.string = id->lexeme;
@@ -276,6 +320,11 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 
 		case NE_OP: // (!=)
 			return equality_calculator(NE_OP, tree, frame);
+		case APPLY:
+			printf("Function found\n");
+			TOKEN* name = (TOKEN*)tree->left->left;
+			printf("Variable returned: %s\n", name->lexeme);
+			return lexical_call_method(name, tree->right, frame);
 		default:
 		break;
   	}
