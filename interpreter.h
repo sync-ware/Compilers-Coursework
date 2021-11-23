@@ -29,13 +29,22 @@ typedef struct frame {
 	struct frame* next;
 } FRAME;
 
-FRAME* new_frame();
+typedef struct closure {
+	FRAME* frame;
+	NODE* code;
+} CLOSURE;
 
-VALUE* addValues(VALUE* leftValue, VALUE* rightValue);
-VALUE* minusValues(VALUE* leftValue, VALUE* rightValue);
-VALUE* divideValues(VALUE* leftValue, VALUE* rightValue);
-VALUE* multiplyValues(VALUE* leftValue, VALUE* rightValue);
-VALUE* moduloValues(VALUE* leftValue, VALUE* rightValue);
+FRAME* new_frame();
+BINDING* new_binding(NODE* name, VALUE* val, BINDING* next);
+FRAME* extend_frame(FRAME* env, NODE* ids, NODE* args);
+VALUE* lexical_call_method(TOKEN* name, NODE* args, FRAME* frame);
+//CLOSURE* generate_closure(TOKEN* name, FRAME* frame);
+
+VALUE* add_values(VALUE* left_operand, VALUE* right_operand);
+VALUE* sub_values(VALUE* left_operand, VALUE* right_operand);
+VALUE* div_values(VALUE* left_operand, VALUE* right_operand);
+VALUE* mul_values(VALUE* left_operand, VALUE* right_operand);
+VALUE* mod_values(VALUE* left_operand, VALUE* right_operand);
 
 VALUE* declare_variable(TOKEN* var, FRAME* frame);
 VALUE* get_variable(TOKEN* var, FRAME* frame);

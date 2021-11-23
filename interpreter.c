@@ -12,34 +12,63 @@ FRAME* new_frame(){
 	return frame;
 }
 
-VALUE* addValues(VALUE* leftValue, VALUE* rightValue){
-  leftValue->v.integer = leftValue->v.integer + rightValue->v.integer;
-  free(rightValue);
-  return leftValue;
+BINDING* new_binding(NODE* name, VALUE* val, BINDING* next){
+	BINDING* binding = (BINDING*)malloc(sizeof(BINDING));
+	binding->name = (TOKEN*)name;
+	binding->val = val;
+	binding->next = next;
+	return binding;
 }
 
-VALUE* minusValues(VALUE* leftValue, VALUE* rightValue){
-  leftValue->v.integer = leftValue->v.integer - rightValue->v.integer;
-  free(rightValue);
-  return leftValue;
+FRAME* extend_frame(FRAME* env, NODE* ids, NODE* args){
+	FRAME* new_env = new_frame();
+	BINDING* bindings = NULL;
+	{ // Limit scope
+		NODE* ip;
+		NODE* ap;
+		for (ip = ids, ap = args; (ip != NULL) && (ap != NULL); ip->right, ap->right){
+			bindings = new_binding(ip->left, interpret(ap->left, env), bindings);
+		}
+	}
+	new_env->binding = bindings;
+	return new_env;
 }
 
-VALUE* divideValues(VALUE* leftValue, VALUE* rightValue){
-  leftValue->v.integer = leftValue->v.integer / rightValue->v.integer;
-  free(rightValue);
-  return leftValue;
+VALUE* lexical_call_method(TOKEN* name, NODE* args, FRAME* env){
+	CLOSURE* f;
+	FRAME* new_env = extend_frame(env, NULL, args);
+	new_env->next = f->frame;
+	return interpret(f->code, new_env);
 }
 
-VALUE* multiplyValues(VALUE* leftValue, VALUE* rightValue){
-  leftValue->v.integer = leftValue->v.integer * rightValue->v.integer;
-  free(rightValue);
-  return leftValue;
+VALUE* add_values(VALUE* left_operand, VALUE* right_operand){
+  left_operand->v.integer = left_operand->v.integer + right_operand->v.integer;
+  free(right_operand);
+  return left_operand;
 }
 
-VALUE* moduloValues(VALUE* leftValue, VALUE* rightValue){
-  leftValue->v.integer = leftValue->v.integer % rightValue->v.integer;
-  free(rightValue);
-  return leftValue;
+VALUE* sub_values(VALUE* left_operand, VALUE* right_operand){
+  left_operand->v.integer = left_operand->v.integer - right_operand->v.integer;
+  free(right_operand);
+  return left_operand;
+}
+
+VALUE* div_values(VALUE* left_operand, VALUE* right_operand){
+  left_operand->v.integer = left_operand->v.integer / right_operand->v.integer;
+  free(right_operand);
+  return left_operand;
+}
+
+VALUE* mul_values(VALUE* left_operand, VALUE* right_operand){
+  left_operand->v.integer = left_operand->v.integer * right_operand->v.integer;
+  free(right_operand);
+  return left_operand;
+}
+
+VALUE* mod_values(VALUE* left_operand, VALUE* right_operand){
+  left_operand->v.integer = left_operand->v.integer % right_operand->v.integer;
+  free(right_operand);
+  return left_operand;
 }
 
 VALUE* declare_variable(TOKEN* var, FRAME* frame){
@@ -120,13 +149,13 @@ VALUE* interpret(NODE *tree, FRAME* frame)
   	switch(tree->type){
     	case 68: //D
       		printf("Begin Interpretation.\n");
-			interpret(tree->left, frame);
+			//interpret(tree->left, frame);
       		return interpret(tree->right, frame);
-		case 100: //d
-			printf("Function def found.\n");
-			TOKEN* tok = new_token(interpret(tree->left, frame)->v.integer);
-			tok->lexeme = interpret(tree->right->right, frame);
-			return declare_variable(tok, frame);
+		// case 100: //d
+		// 	printf("Function def found.\n");
+		// 	TOKEN* tok = new_token(interpret(tree->left, frame)->v.integer);
+		// 	tok->lexeme = interpret(tree->right->right, frame);
+		// 	return declare_variable(tok, frame);
     	case RETURN:
       		printf("Return found.\n");
 			return interpret(tree->left, frame);
@@ -135,19 +164,19 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			return interpret(tree->left, frame);
 		case 43: //+
 			printf("Plus found.\n");
-			return addValues(interpret(tree->left, frame), interpret(tree->right, frame));
+			return add_values(interpret(tree->left, frame), interpret(tree->right, frame));
 		case 45: //-
 			printf("Minus found.\n");
-			return minusValues(interpret(tree->left, frame), interpret(tree->right, frame));
+			return sub_values(interpret(tree->left, frame), interpret(tree->right, frame));
 		case 47: //(/)
 			printf("Divide found.\n");
-			return divideValues(interpret(tree->left, frame), interpret(tree->right, frame));
+			return div_values(interpret(tree->left, frame), interpret(tree->right, frame));
 		case 42: //(*)
 			printf("Multiplication found.\n");
-			return multiplyValues(interpret(tree->left, frame), interpret(tree->right, frame));
+			return mul_values(interpret(tree->left, frame), interpret(tree->right, frame));
 		case 37: //%
 			printf("Modulo found.\n");
-			return moduloValues(interpret(tree->left, frame), interpret(tree->right, frame));
+			return mod_values(interpret(tree->left, frame), interpret(tree->right, frame));
 		case CONSTANT:;
 			TOKEN *t = (TOKEN *)tree;
 			printf("Constant found: %d.\n",t->value);
@@ -158,10 +187,10 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 		case 59: // ;
 			printf("Sequence found\n");
 			VALUE* left_seq = interpret(tree->left, frame); // Go through and interpret the first part of the sequence
-			VALUE* right_seq = interpret(tree->right, frame);
 			if (left_seq != NULL){ // If left sequnce has a return value, we need to return this
 				return left_seq;
 			}
+			VALUE* right_seq = interpret(tree->right, frame);
 			return right_seq;
 		case ASSIGNMENT: // ~
 			printf("Assignment found\n");
