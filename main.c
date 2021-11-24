@@ -131,7 +131,12 @@ int main(int argc, char** argv)
 	if (findArg(argc, argv, "-i")) {
 		FRAME* frame = new_frame();
 		printf("\n");
-		VALUE* status = interpret(tree, frame);
+    
+		VALUE* interpretation = interpret(tree, frame);
+    TOKEN* main = new_token(mmcINT);
+    main->lexeme = malloc(sizeof(char)*5);
+    main->lexeme = "main";
+    VALUE* status = lexical_call_method(main, NULL, frame);
     //printf("Status achieved\n");
 		printf("Program exited with status code %d.\n\n", status->v.integer);
 	}

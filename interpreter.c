@@ -105,7 +105,7 @@ VALUE* declare_function(NODE* func, FRAME* frame){
 		new->val = value;
 		new->next = bindings;
 		frame->binding = new;
-		return (VALUE*)0;
+		return new_value(mmcSTRING, (void*)&token->lexeme);
 	}
 }
 
@@ -238,13 +238,11 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			return right_seq;
 		case ASSIGNMENT: // ~
 			printf("Assignment found\n");
-			if (tree->right->type == ASSIGNMENT || tree->right->type == 68){
-				interpret(tree->left, frame);
-				interpret(tree->right, frame);
-				TOKEN* main = new_token(mmcINT);
-				main->lexeme = malloc(sizeof(char)*5);
-				main->lexeme = "main";
-				return lexical_call_method(main, NULL, frame);
+			if (tree->left->type == ASSIGNMENT || tree->left->type == 68){
+				VALUE* left_branch = interpret(tree->left, frame);
+				VALUE* right_branch = interpret(tree->right, frame);
+				return NULL;
+				
 			} else {
 				// Generate a token for the variable
 				TOKEN* token = new_token(interpret(tree->left, frame)->v.integer); // Type
@@ -259,9 +257,6 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			}
 		case INT:
 			printf("Int type found.\n");
-			VALUE* int_value = (VALUE*)malloc(sizeof(VALUE));
-			int_value->type=mmcINT;
-			int_value->v.integer = mmcINT;
 			int type = mmcINT;
 			return new_value(mmcINT, (void*)&type);
 		case IDENTIFIER:
@@ -271,10 +266,6 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			printf("Id: %s\n", id->lexeme);
 			VALUE* found_id = get_variable(id, frame); // Check to see if it is already defined.
 			if (found_id == NULL){
-				
-				VALUE* id_val = (VALUE*)malloc(sizeof(VALUE));
-				id_val->type = mmcSTRING;
-				id_val->v.string = id->lexeme;
 				return new_value(mmcSTRING, (void*)&id->lexeme);
 			} else {
 				printf("Variable found\n");
