@@ -20,19 +20,43 @@ BINDING* new_binding(NODE* name, VALUE* val, BINDING* next){
 	return binding;
 }
 
+BINDING* gen_bindings(NODE* ids, NODE* args, FRAME* frame, BINDING* bindings){
+	printf("Type binding: %d\n", ids->left->type);
+	if (ids->left->type != VOID){
+		if (ids->type != 44){
+			printf("Id type: %d\n", ids->right->left->type);
+			bindings = new_binding(ids->right->left, interpret(args->left, frame), bindings);
+		} else {
+			printf("Comma found\n");
+			bindings = gen_bindings(ids->left, args->left, frame, bindings);
+			bindings = gen_bindings(ids->right, args->right, frame, bindings);
+		}
+		return bindings;
+	} else {
+		return NULL;
+	}
+}
+
 FRAME* extend_frame(FRAME* env, NODE* ids, NODE* args){
 	FRAME* new_env = new_frame();
 	
 	BINDING* bindings = NULL;
-	{ // Limit scope
-		NODE* ip;
-		NODE* ap;
-		for (ip = ids, ap = args; (ip != NULL) && (ap != NULL); ip = ip->right, ap = ap->right){
+	// { // Limit scope
+	// 	NODE* ip;
+	// 	NODE* ap;
+	// 	for (ip = ids, ap = args; (ip != NULL) && (ap != NULL); ip = ip->right, ap = ap->right){
+	// 		if (ip->type == 44){
 
-			bindings = new_binding(ip->right->left, interpret(ap->left, env), bindings);
-		}
-	}
-	new_env->binding = bindings;
+	// 		} else {
+	// 			bindings = new_binding(ip->right->left, interpret(ap->left, env), bindings);
+	// 		}
+	// 	}
+	// }
+
+	//new_env->binding = bindings;
+	printf("Extending bindings\n");
+	new_env->binding = gen_bindings(ids, args, env, bindings);
+	printf("Bidnings finished\n");
 	return new_env;
 }
 
@@ -190,12 +214,7 @@ VALUE* interpret(NODE *tree, FRAME* frame)
     	case 68: //D
       		printf("Func def found.\n");
 			return declare_function(tree, frame);
-      		
-		// case 100: //d
-		// 	printf("Function def found.\n");
-		// 	TOKEN* tok = new_token(interpret(tree->left, frame)->v.integer);
-		// 	tok->lexeme = interpret(tree->right->right, frame);
-		// 	return declare_variable(tok, frame);
+
     	case RETURN:
       		printf("Return found.\n");
 			VALUE* ret = interpret(tree->left, frame);
@@ -222,9 +241,6 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 		case CONSTANT:;
 			TOKEN *t = (TOKEN *)tree;
 			printf("Constant found: %d.\n",t->value);
-			// VALUE* value = (VALUE*)malloc(sizeof(VALUE));;
-			// value->type = mmcINT;
-			// value->v.integer = t->value;
 			return new_value(mmcINT, (void*)&t->value);
 		case 59: // ;
 			printf("Sequence found\n");
@@ -294,7 +310,6 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			} else {
 				printf("Condition false\n");
 				if (tree->right->type == ELSE){
-					
 					return interpret(tree->right, new_scope);
 				} else {
 					return NULL;
@@ -325,8 +340,11 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 		case APPLY:
 			printf("Function found\n");
 			TOKEN* name = (TOKEN*)tree->left->left;
-			printf("Variable returned: %s\n", name->lexeme);
+			printf("Function variable returned: %s\n", name->lexeme);
 			return lexical_call_method(name, tree->right, frame);
+		case 44:
+			printf("Multiple arguments found\n");
+
 		default:
 		break;
   	}

@@ -5,8 +5,13 @@ int fact(int y){
 		return y*fact(y-1);
 	}
 }
+
+int hello(int x, int y, int z){
+	return x + y + z;
+}
+
 int main(void)
 {   
-	int x = fact(2);
+	int x = hello(2, 3, 4);
 	return x;
 }
