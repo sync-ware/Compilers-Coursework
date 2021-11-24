@@ -12,6 +12,6 @@ int hello(int x, int y){
 
 int main(void)
 {   
-	int x = fact(5);
+	int x = 1 + 2 * 3 - 4 / 5 % 6;
 	return x;
 }

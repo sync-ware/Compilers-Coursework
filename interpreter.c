@@ -48,38 +48,34 @@ VALUE* lexical_call_method(TOKEN* name, NODE* args, FRAME* frame){
 	CLOSURE* f = generate_closure(name, frame);
 	FRAME* new_env = extend_frame(frame, f->args, args);
 	new_env->next = f->frame;
-	printf("Body type: %d\n", f->body->type);
 	return interpret(f->body, new_env);
 }
 
 VALUE* add_values(VALUE* left_operand, VALUE* right_operand){
-  left_operand->v.integer = left_operand->v.integer + right_operand->v.integer;
-  free(right_operand);
-  return left_operand;
+	int calculation = left_operand->v.integer + right_operand->v.integer;
+  	return new_value(mmcINT, (void*)&calculation);
 }
 
 VALUE* sub_values(VALUE* left_operand, VALUE* right_operand){
-  left_operand->v.integer = left_operand->v.integer - right_operand->v.integer;
-  free(right_operand);
-  return left_operand;
+	int calculation = left_operand->v.integer - right_operand->v.integer;
+	return new_value(mmcINT, (void*)&calculation);
 }
 
 VALUE* div_values(VALUE* left_operand, VALUE* right_operand){
-  left_operand->v.integer = left_operand->v.integer / right_operand->v.integer;
-  free(right_operand);
-  return left_operand;
+  int calculation = left_operand->v.integer / right_operand->v.integer;
+  return new_value(mmcINT, (void*)&calculation);
 }
 
 VALUE* mul_values(VALUE* left_operand, VALUE* right_operand){
-  left_operand->v.integer = left_operand->v.integer * right_operand->v.integer;
-  free(right_operand);
-  return left_operand;
+  int calculation = left_operand->v.integer * right_operand->v.integer;
+  //free(right_operand);
+  return new_value(mmcINT, (void*)&calculation);
 }
 
 VALUE* mod_values(VALUE* left_operand, VALUE* right_operand){
-  left_operand->v.integer = left_operand->v.integer % right_operand->v.integer;
-  free(right_operand);
-  return left_operand;
+  int calculation = left_operand->v.integer % right_operand->v.integer;
+  //free(right_operand);
+  return new_value(mmcINT, (void*)&calculation);
 }
 
 VALUE* declare_variable(TOKEN* var, FRAME* frame){
@@ -164,7 +160,6 @@ VALUE* equality_calculator(int type, NODE* tree, FRAME* frame){
 	VALUE* right_operand = interpret(tree->right, frame);
 	int equality;
 	if (left_operand->type == mmcINT && right_operand->type == mmcINT){
-		printf("Both ints\n");
 		switch(type){
 			case EQ_OP:
 				equality = left_operand->v.integer == right_operand->v.integer;
@@ -202,9 +197,10 @@ VALUE* interpret(NODE *tree, FRAME* frame)
       		printf("Return found.\n");
 			VALUE* ret = interpret(tree->left, frame);
 			ret->is_func_ret = 1;
+			printf("Return value: %d\n", ret->v.integer);
 			return ret;
 		case LEAF:
-			printf("Leaf found.\n");
+			//printf("Leaf found.\n");
 			return interpret(tree->left, frame);
 		case 43: //+
 			printf("Plus found.\n");
@@ -230,7 +226,6 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			VALUE* left_seq = interpret(tree->left, frame); // Go through and interpret the first part of the sequence
 			//printf("Func type: %d\n", left_seq->is_func_ret);
 			if (left_seq != NULL && left_seq->is_func_ret == 1){ // If left sequnce has a return value, we need to return this
-				printf("left_seq: %d\n", left_seq->v.integer);
 				return left_seq;
 			}
 			VALUE* right_seq = interpret(tree->right, frame);
@@ -262,7 +257,6 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			printf("Identifier found\n");
 			
 			TOKEN* id = (TOKEN*)tree;
-			printf("Id: %s\n", id->lexeme);
 			VALUE* found_id = get_variable(id, frame); // Check to see if it is already defined.
 			if (found_id == NULL){
 				return new_value(mmcSTRING, (void*)&id->lexeme);
