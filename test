@@ -6,12 +6,12 @@ int fact(int y){
 	}
 }
 
-int hello(int x, int y, int z){
-	return x + y + z;
+int hello(int x, int y){
+	return x + y;
 }
 
 int main(void)
 {   
-	int x = hello(2, 3, 4);
+	int x = fact(5);
 	return x;
 }
