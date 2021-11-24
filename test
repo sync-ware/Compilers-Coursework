@@ -1,17 +1,16 @@
-int fact(int y){
-	if (y == 1){
-		return y;
-	} else {
-		return y*fact(y-1);
+function cplus(int a){
+	int cplusa(int b){
+		return a + b;
 	}
+	return cplusa;
 }
 
-int hello(int x, int y){
-	return x + y;
+int g(){
+	return 10;
 }
 
-int main(void)
+int main()
 {   
-	int x = 1 + 2 * 3 - 4 / 5 % 6;
+	int x = cplus(10)(2);
 	return x;
 }

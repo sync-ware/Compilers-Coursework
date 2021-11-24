@@ -21,7 +21,8 @@ BINDING* new_binding(NODE* name, VALUE* val, BINDING* next){
 }
 
 BINDING* gen_bindings(NODE* ids, NODE* args, FRAME* frame, BINDING* bindings){
-	if (ids->left->type != VOID){
+	if (ids != NULL && ids->left->type != VOID){
+		
 		if (ids->type != 44){
 			printf("Generating bindings\n");
 			bindings = new_binding(ids->right->left, interpret(args, frame), bindings);
@@ -197,7 +198,11 @@ VALUE* interpret(NODE *tree, FRAME* frame)
       		printf("Return found.\n");
 			VALUE* ret = interpret(tree->left, frame);
 			ret->is_func_ret = 1;
-			printf("Return value: %d\n", ret->v.integer);
+			if (ret->type == mmcINT){
+				printf("Return value int: %d\n", ret->v.integer);
+			} else if (ret->type == mmcFUNC){
+				printf("Return value func: %p\n", ret->v.function);
+			}
 			return ret;
 		case LEAF:
 			//printf("Leaf found.\n");
@@ -316,12 +321,17 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			return equality_calculator(NE_OP, tree, frame);
 		case APPLY:
 			printf("Function found\n");
-			TOKEN* name = (TOKEN*)tree->left->left;
-			printf("Function variable returned: %s\n", name->lexeme);
-			return lexical_call_method(name, tree->right, frame);
-		case 44:
-			printf("Multiple arguments found\n");
+			if (tree->left->type != APPLY){
+				TOKEN* name = (TOKEN*)tree->left->left;
+				printf("Function variable returned: %s\n", name->lexeme);
+				return lexical_call_method(name, tree->right, frame);
+			} else {
+				
+				VALUE* func = interpret(tree->left, frame);
+				NODE* func_tree = (NODE*)func->v.function;
 
+				return NULL;
+			}
 		default:
 		break;
   	}
