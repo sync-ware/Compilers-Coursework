@@ -46,7 +46,7 @@ FRAME* extend_frame(FRAME* env, NODE* ids, NODE* args){
 
 VALUE* lexical_call_method(TOKEN* name, NODE* args, FRAME* frame){
 	printf("Calling: %s\n", name->lexeme);
-	CLOSURE* f = generate_closure(name, frame);
+	CLOSURE* f = (CLOSURE*)get_variable(name, frame)->v.function;
 	FRAME* new_env = extend_frame(frame, f->args, args);
 	new_env->next = f->frame;
 	return interpret(f->body, new_env);
@@ -102,7 +102,8 @@ VALUE* declare_function(NODE* func, FRAME* frame){
 	if (new != 0){
 		VALUE* value = (VALUE*)malloc(sizeof(VALUE));
 		value->type = mmcFUNC;
-		value->v.function = (void*)func;
+		CLOSURE* closure = new_closure(func, frame);
+		value->v.function = (void*)closure;
 		TOKEN* token = new_token(mmcINT);
 		token->lexeme = interpret(func->left->right->left, frame)->v.string;
 		new->name = token;
@@ -113,17 +114,12 @@ VALUE* declare_function(NODE* func, FRAME* frame){
 	}
 }
 
-CLOSURE* generate_closure(TOKEN* name, FRAME* frame){
-	VALUE* val = get_variable(name, frame);
+CLOSURE* new_closure(NODE* func, FRAME* frame){
 	CLOSURE* closure = (CLOSURE*)malloc(sizeof(CLOSURE));
-	NODE* func_def = (NODE*)val->v.function;
-
-	closure->code = func_def;
+	closure->code = func;
 	closure->frame = frame;
-	closure->body = func_def->right;
-	closure->args = func_def->left->right->right;
-	//printf("Argument type: %d\n", func_def->left->right->right->type);
-	
+	closure->body = func->right;
+	closure->args = func->left->right->right;
 	return closure;
 }
 
@@ -321,16 +317,19 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			return equality_calculator(NE_OP, tree, frame);
 		case APPLY:
 			printf("Function found\n");
+			TOKEN* func_name;
+			// If we have an apply within our apply, we need to resolve the inner apply first
 			if (tree->left->type != APPLY){
-				TOKEN* name = (TOKEN*)tree->left->left;
-				printf("Function variable returned: %s\n", name->lexeme);
-				return lexical_call_method(name, tree->right, frame);
+				func_name = (TOKEN*)tree->left->left;
+				printf("Function variable returned: %s\n", func_name->lexeme);
+				return lexical_call_method(func_name, tree->right, frame);
 			} else {
-				
+				// Resolve inner apply, means we need to resolve it for the functions frame of reference
 				VALUE* func = interpret(tree->left, frame);
-				NODE* func_tree = (NODE*)func->v.function;
-
-				return NULL;
+				CLOSURE* func_tree = (CLOSURE*)func->v.function;
+				func_name = (TOKEN*)func_tree->code->left->right->left->left;
+				printf("Func name: %s\n", func_name->lexeme);
+				return lexical_call_method(func_name, tree->right, func_tree->frame);
 			}
 		default:
 		break;
