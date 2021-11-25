@@ -331,6 +331,15 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 				printf("Func name: %s\n", func_name->lexeme);
 				return lexical_call_method(func_name, tree->right, func_tree->frame);
 			}
+		case WHILE:
+			printf("While loop found\n");
+			VALUE* while_ret = NULL;
+			// Check for a return in the while loop.
+			while (interpret(tree->left, frame)->v.boolean == 1 && (while_ret == NULL || !while_ret->is_func_ret))
+			{
+				while_ret = interpret(tree->right, frame);
+			}
+			return while_ret;
 		default:
 		break;
   	}
