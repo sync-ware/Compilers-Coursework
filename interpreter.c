@@ -335,6 +335,7 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			printf("While loop found\n");
 			VALUE* while_ret = NULL;
 			// Check for a return in the while loop.
+			// TODO: Specify new scope for within while loop
 			while (interpret(tree->left, frame)->v.boolean == 1 && (while_ret == NULL || !while_ret->is_func_ret))
 			{
 				while_ret = interpret(tree->right, frame);

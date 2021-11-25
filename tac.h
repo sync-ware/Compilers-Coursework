@@ -41,17 +41,32 @@ static char* tac_ops[] = {
     "LOAD WORD"
 };
 
-typedef struct tac {
-    int op ;
+typedef struct call{
+    TOKEN* name;
+    int arity;
+} CALL;
+
+typedef struct block{
+    int nvars;
+} BLOCK;
+
+typedef struct tac_tokens{
     TOKEN* src1;
     TOKEN* src2;
     TOKEN* dst;
+} TAC_TOKENS;
+
+typedef struct tac {
+    int op ;
+    union {BLOCK block; CALL call; TAC_TOKENS tokens;} args;
     struct tac* next;
 } TAC;
 
 TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst);
+TAC* new_proc_tac(int op, TOKEN* name, int arity);
 void attach_tac(TAC* left, TAC* right);
 TAC* arithmetic_tac(NODE* ast, int op);
+int count_args(NODE* args);
 TAC* mmc_icg(NODE* ast);
 void mmc_print_ic(TAC* i);
 
