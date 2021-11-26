@@ -62,6 +62,21 @@ typedef struct tac {
     struct tac* next;
 } TAC;
 
+typedef struct bb {
+    TAC* leader;
+    struct bb* next;
+} BB;
+
+typedef struct stack{
+    int top;
+    int size;
+    void** contents;
+} STACK;
+
+STACK* new_stack();
+void push(STACK* stack, void* object);
+void* pop(STACK* stack);
+
 TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst);
 TAC* new_proc_tac(int op, TOKEN* name, int arity);
 void attach_tac(TAC* left, TAC* right);
@@ -69,5 +84,10 @@ TAC* arithmetic_tac(NODE* ast, int op);
 int count_args(NODE* args);
 TAC* mmc_icg(NODE* ast);
 void mmc_print_ic(TAC* i);
+BB* new_basic_block(TAC* tac);
+BB* block_graph_gen(TAC* tac);
+void optimise_block(BB* bb);
+void print_blocks(BB* bb);
+void print_single_tac(TAC* i);
 
 #endif

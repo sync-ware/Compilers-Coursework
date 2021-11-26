@@ -18,11 +18,11 @@ MC* new_mci(char* s){
 MC* three_address_generate(char* op, TAC* i){
 	char str[50] = "";
 	strncat(str, op, 5);
-	strncat(str, i->dst->lexeme, strlen(i->dst->lexeme)+1);
+	strncat(str, i->args.tokens.dst->lexeme, strlen(i->args.tokens.dst->lexeme)+1);
 	strncat(str, ", ", 3);
-	strncat(str, i->src1->lexeme, strlen(i->src1->lexeme)+1);
+	strncat(str, i->args.tokens.src1->lexeme, strlen(i->args.tokens.src1->lexeme)+1);
 	strncat(str, ", ", 3);
-	strncat(str, i->src2->lexeme, strlen(i->src2->lexeme)+1);
+	strncat(str, i->args.tokens.src2->lexeme, strlen(i->args.tokens.src2->lexeme)+1);
 	MC* ins = new_mci(str);
 	ins->next = mmc_mcg(i->next);
 	return ins;
@@ -59,10 +59,10 @@ MC* mmc_mcg(TAC* i){
 
 		case tac_load:;
 			strncat(str_ins, "li ", 4);
-			strncat(str_ins, i->dst->lexeme, strlen(i->dst->lexeme)+1);
+			strncat(str_ins, i->args.tokens.dst->lexeme, strlen(i->args.tokens.dst->lexeme)+1);
 			strncat(str_ins, ", ", 3);
 			char raw_val[8]; 
-			sprintf(raw_val, "%d", i->dst->value);
+			sprintf(raw_val, "%d", i->args.tokens.dst->value);
 			strncat(str_ins, raw_val, 9);
 			ins = new_mci(str_ins);
 			ins->next = mmc_mcg(i->next);
@@ -76,24 +76,24 @@ MC* mmc_mcg(TAC* i){
 
 		case tac_divide:;
 			strncat(str_ins, "div ", 5);
-			strncat(str_ins, i->src1->lexeme, strlen(i->src1->lexeme)+1);
+			strncat(str_ins, i->args.tokens.src1->lexeme, strlen(i->args.tokens.src1->lexeme)+1);
 			strncat(str_ins, ", ", 3);
-			strncat(str_ins, i->src2->lexeme, strlen(i->src2->lexeme)+1);
+			strncat(str_ins, i->args.tokens.src2->lexeme, strlen(i->args.tokens.src2->lexeme)+1);
 			strncat(str_ins, "\n", 2);
 			strncat(str_ins, "mflo ", 6); // Qoutient goes into register $hi, so we need to move it into destination
-			strncat(str_ins, i->dst->lexeme, strlen(i->dst->lexeme)+1);
+			strncat(str_ins, i->args.tokens.dst->lexeme, strlen(i->args.tokens.dst->lexeme)+1);
 			ins = new_mci(str_ins);
 			ins->next = mmc_mcg(i->next);
 			return ins;
 		
 		case tac_mod:;
 			strncat(str_ins, "div ", 5);
-			strncat(str_ins, i->src1->lexeme, strlen(i->src1->lexeme)+1);
+			strncat(str_ins, i->args.tokens.src1->lexeme, strlen(i->args.tokens.src1->lexeme)+1);
 			strncat(str_ins, ", ", 3);
-			strncat(str_ins, i->src2->lexeme, strlen(i->src2->lexeme)+1);
+			strncat(str_ins, i->args.tokens.src2->lexeme, strlen(i->args.tokens.src2->lexeme)+1);
 			strncat(str_ins, "\n", 2);
 			strncat(str_ins, "mfhi ", 6); // Remainder goes into register $lo, so we need to move it into destination
-			strncat(str_ins, i->dst->lexeme, strlen(i->dst->lexeme)+1);
+			strncat(str_ins, i->args.tokens.dst->lexeme, strlen(i->args.tokens.dst->lexeme)+1);
 			ins= new_mci(str_ins);
 			ins->next = mmc_mcg(i->next);
 			return ins;
@@ -106,32 +106,32 @@ MC* mmc_mcg(TAC* i){
 			return new_mci(""); // Temporary
 
 		case tac_proc:;
-			strncat(str_ins, i->src1->lexeme, strlen(i->src1->lexeme)+1);
+			strncat(str_ins, i->args.call.name->lexeme, strlen(i->args.call.name->lexeme)+1);
 			strncat(str_ins, ":", 2);
 			ins = new_mci(str_ins);
 			ins->next = mmc_mcg(i->next);
 			return ins;
 
 		case tac_load_word:;
-			if (find_word(words, i->src1->lexeme, word_count) == 0){
-				words[word_count] = i->src1->lexeme;
+			if (find_word(words, i->args.tokens.src1->lexeme, word_count) == 0){
+				words[word_count] = i->args.tokens.src1->lexeme;
 				word_count++;
 				//printf("%s\n", i->src1->lexeme);
 			}
 
 			strncat(str_ins, "lw ", 4);
-			strncat(str_ins, i->dst->lexeme, strlen(i->dst->lexeme)+1);
+			strncat(str_ins, i->args.tokens.dst->lexeme, strlen(i->args.tokens.dst->lexeme)+1);
 			strncat(str_ins, ", ", 3);
-			strncat(str_ins, i->src1->lexeme, strlen(i->src1->lexeme)+1);
+			strncat(str_ins, i->args.tokens.src1->lexeme, strlen(i->args.tokens.src1->lexeme)+1);
 			ins = new_mci(str_ins);
 			ins->next = mmc_mcg(i->next);
 			return ins;
 
 		case tac_store_word:;
 			strncat(str_ins, "sw ", 4);
-			strncat(str_ins, i->src1->lexeme, strlen(i->src1->lexeme)+1);
+			strncat(str_ins, i->args.tokens.src1->lexeme, strlen(i->args.tokens.src1->lexeme)+1);
 			strncat(str_ins, ", ", 3);
-			strncat(str_ins, i->dst->lexeme, strlen(i->dst->lexeme)+1);
+			strncat(str_ins, i->args.tokens.dst->lexeme, strlen(i->args.tokens.dst->lexeme)+1);
 			ins = new_mci(str_ins);
 			ins->next = mmc_mcg(i->next);
 			return ins;
@@ -143,9 +143,6 @@ MC* mmc_mcg(TAC* i){
 			printf("unknown type code %d (%p) in mmc_mcg\n",i->op,i);
 		return NULL;
 	}
-	
-	
-	
 
 }
 

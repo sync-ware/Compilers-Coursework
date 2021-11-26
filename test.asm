@@ -12,10 +12,6 @@
 main:
 	li $t0, 1
     li $t1, 2
-    add $t0, $t0, $t1
-    li $t2, 3
-    add $t0, $t0, $t2
-    li $t3, 4
-    add $t0, $t0, $t3
+    add $t0, $t0, $t0
     li $v0, 10
 	syscall # Exit

@@ -144,6 +144,10 @@ int main(int argc, char** argv)
 		TAC* tac = mmc_icg(tree);
 		printf("\n");
 		mmc_print_ic(tac);
+    printf("\n");
+    BB* bb = block_graph_gen(tac);
+    print_blocks(bb);
+    optimise_block(bb);
 
 		if (findArg(argc, argv, "-a")) { //Assembly
 			printf("\n");

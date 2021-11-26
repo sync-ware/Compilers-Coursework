@@ -7,6 +7,51 @@
 
 int availableAddresses = 16;
 
+STACK* new_stack(){
+	STACK* stack = (STACK*)malloc(sizeof(STACK));
+	stack->size = 0;
+	stack->top = -1;
+	return stack;
+}
+
+void** copy_array(void** array, int a_size){
+	void** copy = (void**)malloc(sizeof(void*)*(a_size+1));
+	for (int i = 0; i < a_size; i++){
+		copy[i] = array[i];
+	}
+	if (a_size > 0){
+		free(array);
+	}
+	return copy;
+}
+
+void push(STACK* stack, void* object){
+	stack->top++;
+	if (stack->top == stack->size){
+		void** copy = copy_array(stack->contents, stack->size);
+		copy[stack->top] = object;
+		stack->contents = copy;
+		stack->size++;
+	} else {
+		stack->contents[stack->top] = object;
+	}
+	
+}
+
+void* pop(STACK* stack){
+	void* top = stack->contents[stack->top];
+	stack->contents[stack->top--] = NULL;
+	return top;
+}
+
+void print_stack(STACK* stack){
+	printf("Size: %d, Top: %p\n", stack->size, stack->contents[stack->top]);
+	printf("Contents:\n");
+	for(int i = stack->size-1; i > -1; i--){
+		printf("%d: %p\n", i, stack->contents[i]);
+	}
+}
+
 TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 	TAC* ans = (TAC*)malloc(sizeof(TAC));
 	if (ans==NULL) {
@@ -120,6 +165,7 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 			TAC* proc_body = mmc_icg(ast->right);
 			// int nvars = count_vars(ast->right);
 			// printf("Number of variables: %d\n", nvars);
+
 			proc_def->next = proc_body;
 			TAC* end_proc = new_tac(tac_proc_end, NULL, NULL, NULL);
 			attach_tac(proc_body, end_proc);
@@ -198,7 +244,7 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 		case IDENTIFIER:
 			printf("Identifier found.\n");
 
-			TOKEN* reg_id = (TOKEN*)malloc(sizeof(TAC));
+			TOKEN* reg_id = (TOKEN*)malloc(sizeof(TOKEN));
 			//TAC* load_word_id = new_tac(tac_load_word, ());
 			return new_tac(tac_load_word, (TOKEN*)ast, NULL, reg_id);
 		default:
@@ -207,9 +253,70 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
   	}
 }
 
-void mmc_print_ic(TAC* i)
-{
-  	for(;i!=NULL;i=i->next)
+BB* new_basic_block(TAC* tac){
+	BB* bb = (BB*)malloc(sizeof(BB));
+	bb->leader = tac;
+	bb->next = NULL;
+	return bb;
+}
+
+BB* block_graph_gen(TAC* tac){
+	BB* bb = new_basic_block(tac);
+	BB* next = bb->next;
+	tac = tac->next;
+
+	for(TAC* i = tac; i != NULL; i = i->next){
+		if (i->op == tac_proc){
+			next = new_basic_block(i);
+			next = next->next;
+		}
+	}
+	return bb;
+}
+
+void print_blocks(BB* bb){
+	TAC* tac = bb->leader;
+	int i = 0;
+	printf("Basic Block %d\n", i);
+	while(bb != NULL){
+
+		if (tac != NULL && (bb->next == NULL || tac->next != bb->next->leader)){
+			print_single_tac(tac);
+			tac = tac->next;
+		} else {
+			
+			bb = bb->next;
+			i++;
+			if (bb != NULL){
+				printf("\nBasic Block %d\n", i);
+			}
+		}
+	}
+}
+
+void optimise_block(BB* bb){
+	TAC* leader = bb->leader;
+	STACK* stack = new_stack();
+	for(TAC* i = leader; i != NULL; i=i->next){
+		if (i->op == tac_plus){
+			TAC* add = i;
+			TAC* load2 = (TAC*)pop(stack);
+			TAC* load1 = (TAC*)pop(stack);
+			
+			if (load1->args.tokens.dst->value == load2->args.tokens.dst->value){
+				add->args.tokens.src2 = add->args.tokens.src1;
+				free(load2);
+				load1->next = add;
+			}
+		} else if (i->op != tac_proc && i->op != tac_proc_end){
+			push(stack, (void*)i);
+		}
+	}
+	printf("\nOptimised:\n");
+	mmc_print_ic(leader);
+}
+
+void print_single_tac(TAC* i){
 	if (i->op == tac_plus || i->op == tac_minus || i->op == tac_divide || i->op == tac_multiply || i->op == tac_mod){
 		printf("%s %s, %s, %s\n",
 		tac_ops[i->op], // need to range check!
@@ -238,4 +345,10 @@ void mmc_print_ic(TAC* i)
 	} else if (i->op == tac_proc_end){
 		printf("%s\n", tac_ops[i->op]);
 	}
+}
+
+void mmc_print_ic(TAC* i)
+{
+  	for(;i!=NULL;i=i->next)
+	print_single_tac(i);
 }
