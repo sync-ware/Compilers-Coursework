@@ -20,7 +20,8 @@ enum tac_op {
     tac_proc = 11,
     tac_arg = 12,
     tac_proc_end = 13,
-    tac_load_word = 14
+    tac_load_word = 14,
+    tac_move
 };
 
 static char* tac_ops[] = {
@@ -38,7 +39,8 @@ static char* tac_ops[] = {
     "PROC",
     "ARG",
     "END PROC",
-    "LOAD WORD"
+    "LOAD WORD",
+    "MOVE"
 };
 
 typedef struct call{

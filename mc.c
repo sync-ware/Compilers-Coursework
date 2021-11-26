@@ -106,9 +106,11 @@ MC* mmc_mcg(TAC* i){
 			return new_mci(""); // Temporary
 
 		case tac_proc:;
-			strncat(str_ins, i->args.call.name->lexeme, strlen(i->args.call.name->lexeme)+1);
-			strncat(str_ins, ":", 2);
-			ins = new_mci(str_ins);
+			//printf("%s\n", i->args.call.name->lexeme);
+			char str_proc[10] = "";
+			strncat(str_proc, i->args.call.name->lexeme, strlen(i->args.call.name->lexeme)+1);
+			strncat(str_proc, ":", 2);
+			ins = new_mci(str_proc);
 			ins->next = mmc_mcg(i->next);
 			return ins;
 

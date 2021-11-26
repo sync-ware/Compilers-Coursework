@@ -1,7 +1,7 @@
 .globl main
 .text
 
-RuûUmain:
+main:
 lw $t0, x
 li $t1, 1
 add $t1, $t1, $t1

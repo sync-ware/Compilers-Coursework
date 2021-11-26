@@ -294,20 +294,39 @@ void print_blocks(BB* bb){
 	}
 }
 
+//TODO: Optimise with seperate passes.
 void optimise_block(BB* bb){
 	TAC* leader = bb->leader;
 	STACK* stack = new_stack();
+	STACK* add_stack = new_stack();
 	for(TAC* i = leader; i != NULL; i=i->next){
 		if (i->op == tac_plus){
 			TAC* add = i;
 			TAC* load2 = (TAC*)pop(stack);
 			TAC* load1 = (TAC*)pop(stack);
-			
-			if (load1->args.tokens.dst->value == load2->args.tokens.dst->value){
+			// If the values of the arguments in the loads before the add are the same, then we only need one load.
+			if (load1->op == tac_load && load2->op == tac_load && load1->args.tokens.dst->value == load2->args.tokens.dst->value){
 				add->args.tokens.src2 = add->args.tokens.src1;
 				free(load2);
 				load1->next = add;
+				push(stack, (void*)load1);
+				push(stack, (void*)i);
+			} else {
+				push(stack, (void*)load1);
+				push(stack, (void*)load2);
+				push(stack, (void*)i);
 			}
+			// push(add_stack, i);
+			// if (add_stack->top > 0){
+			// 	TAC* add2 = (TAC*)pop(add_stack);
+			// 	TAC* add1 = (TAC*)pop(add_stack);
+			// 	if (add2->args.tokens.src1->value == add1->args.tokens.src1->value && add2->args.tokens.src2->value == add1->args.tokens.src2->value){
+			// 		TAC* move_tac = new_tac(tac_move, add1->args.tokens.dst, NULL, add2->args.tokens.dst);
+			// 		TAC* prev_tac = (TAC*)pop(stack);
+			// 		move_tac->next = prev_tac->next;
+			// 		prev_tac->next = move_tac;
+			// 	}
+			// }
 		} else if (i->op != tac_proc && i->op != tac_proc_end){
 			push(stack, (void*)i);
 		}
@@ -332,7 +351,7 @@ void print_single_tac(TAC* i){
 		printf("%s %s\n",
 		tac_ops[i->op],
 		i->args.tokens.dst->lexeme);
-	}else if (i->op == tac_store_word){
+	}else if (i->op == tac_store_word || i->op == tac_move){
 		if (i->args.tokens.src1 != NULL){
 			printf("%s %s, %s\n", tac_ops[i->op], i->args.tokens.src1->lexeme, i->args.tokens.dst->lexeme);
 		} else {
