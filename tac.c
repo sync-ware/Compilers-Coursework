@@ -7,6 +7,7 @@
 #include "stack.h"
 
 int availableAddresses = 16;
+int label_count = 1;
 
 TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 	TAC* ans = (TAC*)malloc(sizeof(TAC));
@@ -52,6 +53,13 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 		default:
 			return ans;
   	}
+}
+
+TOKEN* generate_label(){
+	TOKEN* token = new_token(3);
+	token->lexeme = malloc(sizeof(char)*5);
+	sprintf(token->lexeme, "L%d", label_count++);
+	return token;
 }
 
 TAC* new_proc_tac(int op, TOKEN* name, int arity){
@@ -214,14 +222,21 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 			printf("If found.\n");
 			TAC* condition = mmc_icg(ast->left);
 			TAC* condition_type = end_tac(condition); // Get the boolean equality operator
-			TOKEN* label2 = new_token(2);
-			label2->lexeme = malloc(sizeof(char)*3);
-			label2->lexeme = "L2";
-			TAC* alt_jump = new_tac(tac_goto, NULL, NULL, label2); // This is the jump where the condition isn't met
+			TOKEN* label = generate_label();
+			TAC* alt_jump = new_tac(tac_goto, NULL, NULL, label); // This is the jump where the condition isn't met
 
-			attach_tac(condition, alt_jump);
-
-			TAC* body = mmc_icg(ast->right); // Get the body of the if statement
+			
+			TAC* body; // Get the body of the if statement
+			TAC* alt_body; // Possible else body
+			if (ast->right->type != ELSE){
+				body = mmc_icg(ast->right);
+				attach_tac(condition, alt_jump);
+			} else {
+				body = mmc_icg(ast->right->left);
+				alt_body = mmc_icg(ast->right->right);
+				attach_tac(condition, alt_body);
+				attach_tac(alt_body, alt_jump);
+			}
 			
 			// Generate the label if condition is true
 			TAC* true_label = new_tac(tac_label, NULL, NULL, condition_type->args.tokens.dst);
@@ -229,7 +244,7 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 			true_label->next = body;
 
 			// Generate the label if the label is false
-			TAC* false_label = new_tac(tac_label, NULL, NULL, label2);
+			TAC* false_label = new_tac(tac_label, NULL, NULL, label);
 			attach_tac(body, false_label);
 
 			return condition;
@@ -237,13 +252,13 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 		case EQ_OP:;
 			TAC* left_op = mmc_icg(ast->left);
 			TAC* right_op = mmc_icg(ast->right);
-			TOKEN* label = new_token(2);
-			label->lexeme = malloc(sizeof(char)*3);
-			label->lexeme = "L1";
-			TAC* equality = new_tac(tac_equality, left_op->args.tokens.dst, right_op->args.tokens.dst, label);
+			
+			TAC* equality = new_tac(tac_equality, left_op->args.tokens.dst, right_op->args.tokens.dst, generate_label());
 			attach_tac(left_op, right_op);
 			right_op->next = equality;
 			return left_op;
+		case ELSE:;
+
 		default:
 			printf("unknown type code %d (%p) in mmc_icg\n",ast->type,ast);
 			return NULL;

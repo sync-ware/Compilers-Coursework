@@ -4,13 +4,18 @@
 main:
 lw $t0, x
 li $t1, 1
-add $t1, $t1, $t1
 sw $t1, x
-lw $t3, y
-li $t4, 1
-add $t4, $t4, $t4
-sw $t4, y
-lw $t6, x
+lw $t2, y
+li $t3, 1
+sw $t3, y
+lw $t4, x
+lw $t5, y
+beq $t4, $t5, L1
+li $t7, 1
+j L2
+L1:
+li $t6, 0
+L2:
 
 li $v0, 10
 syscall

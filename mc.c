@@ -103,7 +103,8 @@ MC* mmc_mcg(TAC* i){
 			// strncat(str_ret, i->dst->lexeme, strlen(i->dst->lexeme)+1);
 			// MC* ins_ret = new_mci(str_ret);
 			// return ins_ret;
-			return new_mci(""); // Temporary
+			
+			return mmc_mcg(i->next); // Temporary
 
 		case tac_proc:;
 			//printf("%s\n", i->args.call.name->lexeme);
@@ -138,9 +139,35 @@ MC* mmc_mcg(TAC* i){
 			ins->next = mmc_mcg(i->next);
 			return ins;
 		
-		case tac_proc_end:;
+		case tac_equality:;
+			strncat(str_ins, "beq ", 5);
+			strncat(str_ins, i->args.tokens.src1->lexeme, strlen(i->args.tokens.src1->lexeme)+1);
+			strncat(str_ins, ", ", 3);
+			strncat(str_ins, i->args.tokens.src2->lexeme, strlen(i->args.tokens.src2->lexeme)+1);
+			strncat(str_ins, ", ", 3);
+			strncat(str_ins, i->args.tokens.dst->lexeme, strlen(i->args.tokens.dst->lexeme)+1);
+			ins = new_mci(str_ins);
+			ins->next = mmc_mcg(i->next);
+			return ins;
+
+		case tac_label:;
+			strncat(str_ins, i->args.tokens.dst->lexeme, strlen(i->args.tokens.dst->lexeme)+1);
+			strncat(str_ins, ":", 2);
+			ins = new_mci(str_ins);
+			ins->next = mmc_mcg(i->next);
+			return ins;
+
+		case tac_goto:;
+			strncat(str_ins, "j ", 3);
+			strncat(str_ins, i->args.tokens.dst->lexeme, strlen(i->args.tokens.dst->lexeme)+1);
+			ins = new_mci(str_ins);
+			ins->next = mmc_mcg(i->next);
+			return ins;
+
+		case tac_proc_end:
 			return new_mci("");
 
+		
 		default:
 			printf("unknown type code %d (%p) in mmc_mcg\n",i->op,i);
 		return NULL;

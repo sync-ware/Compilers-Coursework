@@ -88,5 +88,6 @@ BB* block_graph_gen(TAC* tac);
 void optimise_block(BB* bb);
 void print_blocks(BB* bb);
 void print_single_tac(TAC* i);
+TOKEN* generate_label();
 
 #endif
