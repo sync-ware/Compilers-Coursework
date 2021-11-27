@@ -4,53 +4,9 @@
 #include "global.h"
 #include "C.tab.h"
 #include <stdio.h>
+#include "stack.h"
 
 int availableAddresses = 16;
-
-STACK* new_stack(){
-	STACK* stack = (STACK*)malloc(sizeof(STACK));
-	stack->size = 0;
-	stack->top = -1;
-	return stack;
-}
-
-void** copy_array(void** array, int a_size){
-	void** copy = (void**)malloc(sizeof(void*)*(a_size+1));
-	for (int i = 0; i < a_size; i++){
-		copy[i] = array[i];
-	}
-	if (a_size > 0){
-		free(array);
-	}
-	return copy;
-}
-
-void push(STACK* stack, void* object){
-	stack->top++;
-	if (stack->top == stack->size){
-		void** copy = copy_array(stack->contents, stack->size);
-		copy[stack->top] = object;
-		stack->contents = copy;
-		stack->size++;
-	} else {
-		stack->contents[stack->top] = object;
-	}
-	
-}
-
-void* pop(STACK* stack){
-	void* top = stack->contents[stack->top];
-	stack->contents[stack->top--] = NULL;
-	return top;
-}
-
-void print_stack(STACK* stack){
-	printf("Size: %d, Top: %p\n", stack->size, stack->contents[stack->top]);
-	printf("Contents:\n");
-	for(int i = stack->size-1; i > -1; i--){
-		printf("%d: %p\n", i, stack->contents[i]);
-	}
-}
 
 TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 	TAC* ans = (TAC*)malloc(sizeof(TAC));
@@ -114,6 +70,14 @@ void attach_tac(TAC* left, TAC* right){
 		left->next = right;
 	} else {
 		attach_tac(left->next, right);
+	}
+}
+
+TAC* end_tac(TAC* start){
+	if (start->next == NULL){
+		return start;
+	} else {
+		return end_tac(start->next);
 	}
 }
 
@@ -245,8 +209,41 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 			printf("Identifier found.\n");
 
 			TOKEN* reg_id = (TOKEN*)malloc(sizeof(TOKEN));
-			//TAC* load_word_id = new_tac(tac_load_word, ());
 			return new_tac(tac_load_word, (TOKEN*)ast, NULL, reg_id);
+		case IF:
+			printf("If found.\n");
+			TAC* condition = mmc_icg(ast->left);
+			TAC* condition_type = end_tac(condition); // Get the boolean equality operator
+			TOKEN* label2 = new_token(2);
+			label2->lexeme = malloc(sizeof(char)*3);
+			label2->lexeme = "L2";
+			TAC* alt_jump = new_tac(tac_goto, NULL, NULL, label2); // This is the jump where the condition isn't met
+
+			attach_tac(condition, alt_jump);
+
+			TAC* body = mmc_icg(ast->right); // Get the body of the if statement
+			
+			// Generate the label if condition is true
+			TAC* true_label = new_tac(tac_label, NULL, NULL, condition_type->args.tokens.dst);
+			alt_jump->next = true_label;
+			true_label->next = body;
+
+			// Generate the label if the label is false
+			TAC* false_label = new_tac(tac_label, NULL, NULL, label2);
+			attach_tac(body, false_label);
+
+			return condition;
+		
+		case EQ_OP:;
+			TAC* left_op = mmc_icg(ast->left);
+			TAC* right_op = mmc_icg(ast->right);
+			TOKEN* label = new_token(2);
+			label->lexeme = malloc(sizeof(char)*3);
+			label->lexeme = "L1";
+			TAC* equality = new_tac(tac_equality, left_op->args.tokens.dst, right_op->args.tokens.dst, label);
+			attach_tac(left_op, right_op);
+			right_op->next = equality;
+			return left_op;
 		default:
 			printf("unknown type code %d (%p) in mmc_icg\n",ast->type,ast);
 			return NULL;
@@ -347,7 +344,7 @@ void print_single_tac(TAC* i){
 		tac_ops[i->op],
 		i->args.tokens.dst->lexeme,
 		i->args.tokens.dst->value);
-	} else if (i->op == tac_return){
+	} else if (i->op == tac_return || i->op == tac_label || i->op == tac_goto){
 		printf("%s %s\n",
 		tac_ops[i->op],
 		i->args.tokens.dst->lexeme);
@@ -363,6 +360,8 @@ void print_single_tac(TAC* i){
 		printf("%s %s, %s\n", tac_ops[i->op], i->args.tokens.src1->lexeme, i->args.tokens.dst->lexeme);
 	} else if (i->op == tac_proc_end){
 		printf("%s\n", tac_ops[i->op]);
+	} else if(i->op == tac_equality){
+		printf("%s %s == %s %s\n", tac_ops[i->op], i->args.tokens.src1->lexeme, i->args.tokens.src2->lexeme, i->args.tokens.dst->lexeme);
 	}
 }
 

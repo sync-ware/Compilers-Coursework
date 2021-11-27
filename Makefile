@@ -1,5 +1,5 @@
-OBJS = lex.yy.o C.tab.o symbol_table.o nodes.o tac.o mc.o interpreter.o main.o
-SRCS = lex.yy.c C.tab.c symbol_table.c nodes.c tac.c mc.c interpreter.c main.c
+OBJS = lex.yy.o C.tab.o symbol_table.o nodes.o tac.o mc.o interpreter.o stack.o main.o
+SRCS = lex.yy.c C.tab.c symbol_table.c nodes.c tac.c mc.c interpreter.c stack.c main.c
 CC = gcc
 
 all:	mycc
@@ -23,6 +23,6 @@ depend:
 	${CC} -M $(SRCS) > .deps
 	cat Makefile .deps > makefile
 
-dist:	symbol_table.c nodes.c tac.c mc.c interpreter.c main.c Makefile C.flex C.y global.h nodes.h token.h tac.h mc.h interpreter.h
-	tar cvfz mycc.tgz symbol_table.c nodes.c tac.c mc.c interpreter.c main.c Makefile C.flex C.y \
-		global.h nodes.h token.h tac.h mc.h interpreter.h
+dist:	symbol_table.c nodes.c tac.c mc.c interpreter.c stack.c main.c Makefile C.flex C.y global.h nodes.h token.h tac.h mc.h interpreter.h stack.h
+	tar cvfz mycc.tgz symbol_table.c nodes.c tac.c mc.c interpreter.c stack.c main.c Makefile C.flex C.y \
+		global.h nodes.h token.h tac.h mc.h interpreter.h stack.h

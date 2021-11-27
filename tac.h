@@ -7,6 +7,7 @@
 #define MAX_ADDRESSES 16
 
 enum tac_op {
+    tac_noop = 0,
 	tac_plus = 1,
 	tac_load = 2,
 	tac_return = 3,
@@ -21,7 +22,10 @@ enum tac_op {
     tac_arg = 12,
     tac_proc_end = 13,
     tac_load_word = 14,
-    tac_move
+    tac_move = 15,
+    tac_equality = 16,
+    tac_label = 17,
+    tac_goto = 18,
 };
 
 static char* tac_ops[] = {
@@ -40,7 +44,10 @@ static char* tac_ops[] = {
     "ARG",
     "END PROC",
     "LOAD WORD",
-    "MOVE"
+    "MOVE",
+    "IF",
+    "LABEL",
+    "GO TO"
 };
 
 typedef struct call{
@@ -68,16 +75,6 @@ typedef struct bb {
     TAC* leader;
     struct bb* next;
 } BB;
-
-typedef struct stack{
-    int top;
-    int size;
-    void** contents;
-} STACK;
-
-STACK* new_stack();
-void push(STACK* stack, void* object);
-void* pop(STACK* stack);
 
 TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst);
 TAC* new_proc_tac(int op, TOKEN* name, int arity);
