@@ -45,7 +45,6 @@ void attach_ins(MC* left, MC* right){
 	}
 }
 
-
 char* words[10];
 int word_count = 0;
 
@@ -150,6 +149,61 @@ MC* mmc_mcg(TAC* i){
 			ins->next = mmc_mcg(i->next);
 			return ins;
 
+		case tac_n_equality:;
+			strncat(str_ins, "bne ", 5);
+			strncat(str_ins, i->args.tokens.src1->lexeme, strlen(i->args.tokens.src1->lexeme)+1);
+			strncat(str_ins, ", ", 3);
+			strncat(str_ins, i->args.tokens.src2->lexeme, strlen(i->args.tokens.src2->lexeme)+1);
+			strncat(str_ins, ", ", 3);
+			strncat(str_ins, i->args.tokens.dst->lexeme, strlen(i->args.tokens.dst->lexeme)+1);
+			ins = new_mci(str_ins);
+			ins->next = mmc_mcg(i->next);
+			return ins;
+
+		case tac_gt_op:;
+			strncat(str_ins, "bgt ", 5);
+			strncat(str_ins, i->args.tokens.src1->lexeme, strlen(i->args.tokens.src1->lexeme)+1);
+			strncat(str_ins, ", ", 3);
+			strncat(str_ins, i->args.tokens.src2->lexeme, strlen(i->args.tokens.src2->lexeme)+1);
+			strncat(str_ins, ", ", 3);
+			strncat(str_ins, i->args.tokens.dst->lexeme, strlen(i->args.tokens.dst->lexeme)+1);
+			ins = new_mci(str_ins);
+			ins->next = mmc_mcg(i->next);
+			return ins;
+
+		case tac_ge_op:;
+			strncat(str_ins, "bge ", 5);
+			strncat(str_ins, i->args.tokens.src1->lexeme, strlen(i->args.tokens.src1->lexeme)+1);
+			strncat(str_ins, ", ", 3);
+			strncat(str_ins, i->args.tokens.src2->lexeme, strlen(i->args.tokens.src2->lexeme)+1);
+			strncat(str_ins, ", ", 3);
+			strncat(str_ins, i->args.tokens.dst->lexeme, strlen(i->args.tokens.dst->lexeme)+1);
+			ins = new_mci(str_ins);
+			ins->next = mmc_mcg(i->next);
+			return ins;
+
+		case tac_lt_op:;
+			strncat(str_ins, "blt ", 5);
+			strncat(str_ins, i->args.tokens.src1->lexeme, strlen(i->args.tokens.src1->lexeme)+1);
+			strncat(str_ins, ", ", 3);
+			strncat(str_ins, i->args.tokens.src2->lexeme, strlen(i->args.tokens.src2->lexeme)+1);
+			strncat(str_ins, ", ", 3);
+			strncat(str_ins, i->args.tokens.dst->lexeme, strlen(i->args.tokens.dst->lexeme)+1);
+			ins = new_mci(str_ins);
+			ins->next = mmc_mcg(i->next);
+			return ins;
+
+		case tac_le_op:;
+			strncat(str_ins, "ble ", 5);
+			strncat(str_ins, i->args.tokens.src1->lexeme, strlen(i->args.tokens.src1->lexeme)+1);
+			strncat(str_ins, ", ", 3);
+			strncat(str_ins, i->args.tokens.src2->lexeme, strlen(i->args.tokens.src2->lexeme)+1);
+			strncat(str_ins, ", ", 3);
+			strncat(str_ins, i->args.tokens.dst->lexeme, strlen(i->args.tokens.dst->lexeme)+1);
+			ins = new_mci(str_ins);
+			ins->next = mmc_mcg(i->next);
+			return ins;
+
 		case tac_label:;
 			strncat(str_ins, i->args.tokens.dst->lexeme, strlen(i->args.tokens.dst->lexeme)+1);
 			strncat(str_ins, ":", 2);
@@ -167,7 +221,6 @@ MC* mmc_mcg(TAC* i){
 		case tac_proc_end:
 			return new_mci("");
 
-		
 		default:
 			printf("unknown type code %d (%p) in mmc_mcg\n",i->op,i);
 		return NULL;

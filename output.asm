@@ -10,7 +10,7 @@ li $t3, 1
 sw $t3, y
 lw $t4, x
 lw $t5, y
-beq $t4, $t5, L1
+bne $t4, $t5, L1
 li $t7, 1
 j L2
 L1:

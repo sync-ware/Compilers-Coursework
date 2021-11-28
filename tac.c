@@ -128,6 +128,16 @@ int count_vars(NODE* args){
 	}
 }
 
+TAC* conditonal_tac(NODE* ast, int type){
+	TAC* left_op = mmc_icg(ast->left);
+	TAC* right_op = mmc_icg(ast->right);
+	
+	TAC* equality = new_tac(type, left_op->args.tokens.dst, right_op->args.tokens.dst, generate_label());
+	attach_tac(left_op, right_op);
+	right_op->next = equality;
+	return left_op;
+}
+
 TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need to jump to.
 {
   	switch (ast->type) {
@@ -250,14 +260,23 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 			return condition;
 		
 		case EQ_OP:;
-			TAC* left_op = mmc_icg(ast->left);
-			TAC* right_op = mmc_icg(ast->right);
-			
-			TAC* equality = new_tac(tac_equality, left_op->args.tokens.dst, right_op->args.tokens.dst, generate_label());
-			attach_tac(left_op, right_op);
-			right_op->next = equality;
-			return left_op;
+			return conditonal_tac(ast, tac_equality);
 		case ELSE:;
+			break;
+		case LE_OP:
+			return conditonal_tac(ast, tac_le_op);
+
+		case GE_OP:
+			return conditonal_tac(ast, tac_ge_op);
+
+		case NE_OP:
+			return conditonal_tac(ast, tac_n_equality);
+
+		case 62:
+			return conditonal_tac(ast, tac_gt_op);
+
+		case 60:
+			return conditonal_tac(ast, tac_lt_op);
 
 		default:
 			printf("unknown type code %d (%p) in mmc_icg\n",ast->type,ast);
@@ -273,35 +292,30 @@ BB* new_basic_block(TAC* tac){
 }
 
 BB* block_graph_gen(TAC* tac){
-	BB* bb = new_basic_block(tac);
-	BB* next = bb->next;
-	tac = tac->next;
-
-	for(TAC* i = tac; i != NULL; i = i->next){
-		if (i->op == tac_proc){
-			next = new_basic_block(i);
-			next = next->next;
-		}
+	if (tac != NULL && (tac->op == tac_proc || tac->op == tac_label)){
+		BB* bb = new_basic_block(tac);
+		bb->next = block_graph_gen(tac->next);
+		return bb;
+	} else if (tac != NULL){
+		return block_graph_gen(tac->next);
+	} else {
+		return NULL;
 	}
-	return bb;
 }
 
 void print_blocks(BB* bb){
-	TAC* tac = bb->leader;
-	int i = 0;
-	printf("Basic Block %d\n", i);
-	while(bb != NULL){
-
-		if (tac != NULL && (bb->next == NULL || tac->next != bb->next->leader)){
-			print_single_tac(tac);
-			tac = tac->next;
-		} else {
-			
+	int x = 0;
+	
+	for(TAC* i = bb->leader; i != NULL; i = i->next){
+		if (bb == NULL){
+			print_single_tac(i);
+		} else if (i == bb->leader){
+			printf("\nBasic Block %d\n", x);
+			x++;
 			bb = bb->next;
-			i++;
-			if (bb != NULL){
-				printf("\nBasic Block %d\n", i);
-			}
+			print_single_tac(i);
+		} else {
+			print_single_tac(i);
 		}
 	}
 }
@@ -377,6 +391,16 @@ void print_single_tac(TAC* i){
 		printf("%s\n", tac_ops[i->op]);
 	} else if(i->op == tac_equality){
 		printf("%s %s == %s %s\n", tac_ops[i->op], i->args.tokens.src1->lexeme, i->args.tokens.src2->lexeme, i->args.tokens.dst->lexeme);
+	} else if (i->op == tac_n_equality){
+		printf("%s %s != %s %s\n", tac_ops[i->op], i->args.tokens.src1->lexeme, i->args.tokens.src2->lexeme, i->args.tokens.dst->lexeme);
+	} else if (i->op == tac_gt_op){
+		printf("%s %s > %s %s\n", tac_ops[i->op], i->args.tokens.src1->lexeme, i->args.tokens.src2->lexeme, i->args.tokens.dst->lexeme);
+	}  else if (i->op == tac_lt_op){
+		printf("%s %s < %s %s\n", tac_ops[i->op], i->args.tokens.src1->lexeme, i->args.tokens.src2->lexeme, i->args.tokens.dst->lexeme);
+	} else if (i->op == tac_ge_op){
+		printf("%s %s >= %s %s\n", tac_ops[i->op], i->args.tokens.src1->lexeme, i->args.tokens.src2->lexeme, i->args.tokens.dst->lexeme);
+	} else if (i->op == tac_le_op){
+		printf("%s %s <= %s %s\n", tac_ops[i->op], i->args.tokens.src1->lexeme, i->args.tokens.src2->lexeme, i->args.tokens.dst->lexeme);
 	}
 }
 

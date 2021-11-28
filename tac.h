@@ -24,8 +24,13 @@ enum tac_op {
     tac_load_word = 14,
     tac_move = 15,
     tac_equality = 16,
-    tac_label = 17,
-    tac_goto = 18,
+    tac_n_equality = 17,
+    tac_le_op = 18,
+    tac_ge_op = 19,
+    tac_gt_op = 20,
+    tac_lt_op = 21,
+    tac_label = 22,
+    tac_goto = 23
 };
 
 static char* tac_ops[] = {
@@ -45,6 +50,11 @@ static char* tac_ops[] = {
     "END PROC",
     "LOAD WORD",
     "MOVE",
+    "IF",
+    "IF",
+    "IF",
+    "IF",
+    "IF",
     "IF",
     "LABEL",
     "GO TO"
@@ -81,6 +91,7 @@ TAC* new_proc_tac(int op, TOKEN* name, int arity);
 void attach_tac(TAC* left, TAC* right);
 TAC* arithmetic_tac(NODE* ast, int op);
 int count_args(NODE* args);
+TAC* conditonal_tac(NODE* ast, int type);
 TAC* mmc_icg(NODE* ast);
 void mmc_print_ic(TAC* i);
 BB* new_basic_block(TAC* tac);
