@@ -3,6 +3,7 @@
 
 #include "token.h"
 #include "nodes.h"
+#include "stack.h"
 
 #define MAX_ADDRESSES 16
 
@@ -63,6 +64,7 @@ static char* tac_ops[] = {
 typedef struct call{
     TOKEN* name;
     int arity;
+    char** arg_names;
 } CALL;
 
 typedef struct block{
@@ -86,8 +88,18 @@ typedef struct bb {
     struct bb* next;
 } BB;
 
+typedef struct ar {
+    unsigned char
+    fp,
+    pc,
+    sl,
+    param[],
+    local[],
+    tmp[]
+} AR;
+
 TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst);
-TAC* new_proc_tac(int op, TOKEN* name, int arity);
+TAC* new_proc_tac(int op, TOKEN* name, STACK* stack);
 void attach_tac(TAC* left, TAC* right);
 TAC* arithmetic_tac(NODE* ast, int op);
 int count_args(NODE* args);

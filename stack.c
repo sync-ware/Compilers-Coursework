@@ -46,3 +46,8 @@ void print_stack(STACK* stack){
 		printf("%d: %p\n", i, stack->contents[i]);
 	}
 }
+
+void free_stack(STACK* stack){
+	free(stack->contents);
+	free(stack);
+}

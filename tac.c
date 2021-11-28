@@ -4,7 +4,7 @@
 #include "global.h"
 #include "C.tab.h"
 #include <stdio.h>
-#include "stack.h"
+#include <unistd.h>
 
 int availableAddresses = 16;
 int label_count = 1;
@@ -62,12 +62,17 @@ TOKEN* generate_label(){
 	return token;
 }
 
-TAC* new_proc_tac(int op, TOKEN* name, int arity){
+TAC* new_proc_tac(int op, TOKEN* name, STACK* arg_stack){
 	TAC* ans = (TAC*)malloc(sizeof(TAC));
 	ans->op = op;
+	char* arg_names[arg_stack->size];
+	for(int i = 0; i < arg_stack->size; i++){
+		arg_names[i] = (char*)pop(arg_stack);
+	}
 	CALL call = {
 		name,
-		arity
+		arg_stack->size,
+		arg_names
 	};
 	ans->args.call = call;
 	return ans;
@@ -108,6 +113,15 @@ int count_args(NODE* args){
 		count += count_args(args->left);
 		count += count_args(args->right);
 		return count;
+	}
+}
+
+void generate_args(NODE* args, STACK* stack){
+	if (args->type == ASSIGNMENT){
+		push(stack, (void*)((TOKEN*)args->right->left)->lexeme);
+	} else if (args->type == 44){
+		generate_args(args->left, stack);
+		generate_args(args->right, stack);
 	}
 }
 
@@ -157,7 +171,11 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 			return mmc_icg(ast->right);
 		
 		case 70:; //F
-			TAC* proc = new_proc_tac(tac_proc, (TOKEN*)ast->left->left, count_args(ast->right));
+			STACK* stack = new_stack();
+			generate_args(ast->right, stack);
+			
+			TAC* proc = new_proc_tac(tac_proc, (TOKEN*)ast->left->left, stack);
+			free_stack(stack);
 			return proc;
 		case VOID:;
 			TOKEN* void_token = (TOKEN*)ast;
@@ -206,11 +224,18 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 
 		case ASSIGNMENT: // ~
 			printf("Assignment found.\n");
-			if (ast->right->type == 61){ // if equals
-				return mmc_icg(ast->right);
+			if (ast->left->type == ASSIGNMENT  || ast->left->type == 68){
+				TAC* left_func = mmc_icg(ast->left);
+				TAC* right_func = mmc_icg(ast->right);
+				attach_tac(left_func, right_func);
+				return left_func;
 			} else {
-				TAC* variable_declare = new_tac(tac_declare, NULL, NULL, NULL);
-				return variable_declare;
+				if (ast->right->type == 61){ // if equals
+					return mmc_icg(ast->right);
+				} else {
+					TAC* variable_declare = new_tac(tac_declare, NULL, NULL, NULL);
+					return variable_declare;
+				}
 			}
 
 		case 61: // =
