@@ -244,8 +244,6 @@ MC* gen_words(int x){
 }
 
 void mmc_print_mc(MC* i){
-
-
 	MC* success_exit = new_mci("li $v0, 10");
 	MC* exit = new_mci("syscall");
 	success_exit->next = exit;

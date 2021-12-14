@@ -88,15 +88,15 @@ typedef struct bb {
     struct bb* next;
 } BB;
 
-typedef struct ar {
-    unsigned char
-    fp,
-    pc,
-    sl,
-    param[],
-    local[],
-    tmp[]
-} AR;
+// typedef struct ar {
+//     unsigned char
+//     fp,
+//     pc,
+//     sl,
+//     param[],
+//     local[],
+//     tmp[];
+// } AR;
 
 TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst);
 TAC* new_proc_tac(int op, TOKEN* name, STACK* stack);

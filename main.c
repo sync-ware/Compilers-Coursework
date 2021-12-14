@@ -140,7 +140,7 @@ int main(int argc, char** argv)
     //printf("Status achieved\n");
 		printf("Program exited with status code %d.\n\n", status->v.integer);
 	}
-	if (findArg(argc, argv, "-m")) {
+	if (findArg(argc, argv, "-t")) {
 		TAC* tac = mmc_icg(tree);
 		printf("\n");
 		mmc_print_ic(tac);

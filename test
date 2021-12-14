@@ -1,14 +1,14 @@
-int f(int x, int y){
-	int z = x + y;
-	return z;
+int f(){
+	if (f() == 1){
+		return 1;
+	}
 }
 
 int main(void)
-{   int x = 1;
-	int y = 1;
-	if (x != y){
-		return 0;
-	} else {
+{   
+	if (1){
 		return 1;
+	} else {
+		return 0;
 	}
 }
