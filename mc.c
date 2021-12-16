@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+// New MIPS instruction
 MC* new_mci(char* s){
 	MC* ans = (MC*)malloc(sizeof(MC));
 	if (ans==NULL) {
@@ -15,6 +16,7 @@ MC* new_mci(char* s){
 	return ans;
 }
 
+// Generate an instruction that has three addresses
 MC* three_address_generate(char* op, TAC* i){
 	char str[50] = "";
 	strncat(str, op, 5);
@@ -28,6 +30,7 @@ MC* three_address_generate(char* op, TAC* i){
 	return ins;
 }
 
+// Look for a variable word from a list of words
 int find_word(char* words[], char* word, int length){
 	for(int x = 0; x < length; x++){
 		if (strcmp(word, words[x]) == 0){
@@ -37,6 +40,7 @@ int find_word(char* words[], char* word, int length){
 	return 0;
 }
 
+// Attach to MC blocks
 void attach_ins(MC* left, MC* right){
 	if (left->next == NULL){
 		left->next = right;
@@ -45,9 +49,10 @@ void attach_ins(MC* left, MC* right){
 	}
 }
 
-char* words[10];
-int word_count = 0;
+char* words[10]; // Max 10 variables at this moment
+int word_count = 0; // Keep track of number of variables used
 
+// Main MC generator, we just translate a TAC into zero or more MC instructions
 MC* mmc_mcg(TAC* i){
 	if (i==NULL) return NULL;
 	char* str_ins = malloc(sizeof(char)*20);
@@ -106,7 +111,6 @@ MC* mmc_mcg(TAC* i){
 			return mmc_mcg(i->next); // Temporary
 
 		case tac_proc:;
-			//printf("%s\n", i->args.call.name->lexeme);
 			char str_proc[10] = "";
 			strncat(str_proc, i->args.call.name->lexeme, strlen(i->args.call.name->lexeme)+1);
 			strncat(str_proc, ":", 2);
@@ -118,7 +122,6 @@ MC* mmc_mcg(TAC* i){
 			if (find_word(words, i->args.tokens.src1->lexeme, word_count) == 0){
 				words[word_count] = i->args.tokens.src1->lexeme;
 				word_count++;
-				//printf("%s\n", i->src1->lexeme);
 			}
 
 			strncat(str_ins, "lw ", 4);
@@ -228,6 +231,7 @@ MC* mmc_mcg(TAC* i){
 
 }
 
+// Generate the words that are used in the program
 MC* gen_words(int x){
 	char word_str[30] = "";
 	strncat(word_str, words[x], strlen(words[x])+1);
@@ -243,6 +247,7 @@ MC* gen_words(int x){
 	}
 }
 
+// Print out the MC instructions along with required MC
 void mmc_print_mc(MC* i){
 	MC* success_exit = new_mci("li $v0, 10");
 	MC* exit = new_mci("syscall");

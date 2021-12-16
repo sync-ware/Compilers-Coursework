@@ -9,6 +9,7 @@
 int availableAddresses = 16;
 int label_count = 1;
 
+// Create a new TAC instruction based on the arguments given
 TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 	TAC* ans = (TAC*)malloc(sizeof(TAC));
 	if (ans==NULL) {
@@ -29,6 +30,7 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 			dst->lexeme = (char*)malloc(4*sizeof(char));
 
 			if (availableAddresses > 0){
+				// Generate a temp register
 				sprintf(address_num, "%d", MAX_ADDRESSES-availableAddresses);
 				strcpy(dst->lexeme, address);
 				strncat(dst->lexeme, address_num, 1);
@@ -52,6 +54,7 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
   	}
 }
 
+// Create a unique label
 TOKEN* generate_label(){
 	TOKEN* token = new_token(3);
 	token->lexeme = malloc(sizeof(char)*5);
@@ -59,6 +62,7 @@ TOKEN* generate_label(){
 	return token;
 }
 
+// A new TAC for proc defenitions. Supply a stack with arguments so that we can store it
 TAC* new_proc_tac(int op, TOKEN* name, STACK* arg_stack){
 	TAC* ans = (TAC*)malloc(sizeof(TAC));
 	ans->op = op;
@@ -75,6 +79,7 @@ TAC* new_proc_tac(int op, TOKEN* name, STACK* arg_stack){
 	return ans;
 }
 
+// Attack two TAC blocks together
 void attach_tac(TAC* left, TAC* right){
 	if (left->next == NULL) {
 		left->next = right;
@@ -83,6 +88,7 @@ void attach_tac(TAC* left, TAC* right){
 	}
 }
 
+// Get the last TAC in a sequence
 TAC* end_tac(TAC* start){
 	if (start->next == NULL){
 		return start;
@@ -91,29 +97,35 @@ TAC* end_tac(TAC* start){
 	}
 }
 
+// TAC for arithmetic instructions
 TAC* arithmetic_tac(NODE* ast, int op){
 	TAC* left_operand = mmc_icg(ast->left);
 	TAC* right_operand = mmc_icg(ast->right);
-	TAC* operator = new_tac(op, left_operand->args.tokens.dst, right_operand->args.tokens.dst, left_operand->args.tokens.dst);
+	TAC* operator = new_tac(
+		op, 
+		left_operand->args.tokens.dst, 
+		right_operand->args.tokens.dst, 
+		left_operand->args.tokens.dst
+	);
 	attach_tac(left_operand, right_operand);
 	attach_tac(right_operand, operator);
 	return left_operand;
 }
 
-int count_args(NODE* args){
-	int count = 0;
-	//printf("No args\n");
-	if (args == NULL || args->left->type == VOID){
-		return 0;
-	} else if (args->type == ASSIGNMENT){
-		return 1;
-	} else if (args->type == 44){
-		count += count_args(args->left);
-		count += count_args(args->right);
-		return count;
-	}
-}
+// int count_args(NODE* args){
+// 	int count = 0;
+// 	if (args == NULL || args->left->type == VOID){
+// 		return 0;
+// 	} else if (args->type == ASSIGNMENT){
+// 		return 1;
+// 	} else if (args->type == 44){
+// 		count += count_args(args->left);
+// 		count += count_args(args->right);
+// 		return count;
+// 	}
+// }
 
+// Process the arguments of a function and place them on a stack
 void generate_args(NODE* args, STACK* stack){
 	if (args != NULL && args->type == ASSIGNMENT){
 		push(stack, (void*)((TOKEN*)args->right->left)->lexeme);
@@ -123,122 +135,97 @@ void generate_args(NODE* args, STACK* stack){
 	}
 }
 
-int count_vars(NODE* args){
-	printf("Start: %p, %d\n", args, args->type);
-	int count = 0;
-	if (args == NULL){
-		printf("Empty node\n");
-		return 0;
-	} else if (args->type == IDENTIFIER){
-		printf("ID found\n");
-		return 1;
-	} else {
-		printf("Search instead, left: %p, right: %p\n", args->left, args->right);
-		count += count_vars(args->left);
-		count += count_vars(args->right);
-		return count;
-	}
-}
-
+// Create a TAC for IF statements
 TAC* conditonal_tac(NODE* ast, int type){
+	// We need to load what we are comparing into temps
 	TAC* left_op = mmc_icg(ast->left);
 	TAC* right_op = mmc_icg(ast->right);
-	
+	// IF TAC
 	TAC* equality = new_tac(type, left_op->args.tokens.dst, right_op->args.tokens.dst, generate_label());
 	attach_tac(left_op, right_op);
 	right_op->next = equality;
 	return left_op;
 }
 
-TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need to jump to.
+// TAC generator main
+TAC* mmc_icg(NODE* ast)
 {
   	switch (ast->type) {
-		case 68: //D
-			printf("Begin TAC Construction.\n");
+		case 68:; //D
 			TAC* proc_def = mmc_icg(ast->left);
 			TAC* proc_body = mmc_icg(ast->right);
-			// int nvars = count_vars(ast->right);
-			// printf("Number of variables: %d\n", nvars);
-
 			proc_def->next = proc_body;
 			TAC* end_proc = new_tac(tac_proc_end, NULL, NULL, NULL);
 			attach_tac(proc_body, end_proc);
 			return proc_def;
 		case 100: //d
-			printf("Function definition.\n");
 			return mmc_icg(ast->right);
 		
 		case 70:; //F
+			// Get the function arguments
 			STACK* stack = new_stack();
 			generate_args(ast->right, stack);
-			
+			// Proc defenition
 			TAC* proc = new_proc_tac(tac_proc, (TOKEN*)ast->left->left, stack);
 			free_stack(stack);
 			return proc;
 		case VOID:;
+			// Not used, but indicates that we found a VOID
 			TOKEN* void_token = (TOKEN*)ast;
 			TAC* void_tac = new_tac(tac_arg, NULL, NULL, void_token);
 			return void_tac;
-		case RETURN:
-			printf("Return found.\n");
+		case RETURN:;
+			// Return from function TAC
 			TAC* tac_process_to_return = mmc_icg(ast->left);
-			
+			// Temp register to return, we will just translate that as a load
 			TAC* ret = new_tac(tac_return, NULL, NULL, tac_process_to_return->args.tokens.dst);
 			attach_tac(tac_process_to_return, ret);
 			return tac_process_to_return;
 
 		case LEAF:
-			printf("Leaf found.\n");
 			return mmc_icg(ast->left);
 
 		case 43: //+
-			printf("Plus found.\n");
 			return arithmetic_tac(ast, tac_plus);
 
 		case CONSTANT:
-			printf("Constant found.\n");
 			return new_tac(tac_load, NULL, NULL, (TOKEN *) ast);
 		case 45: //-
-		 	printf("Minus found.\n");
 			return arithmetic_tac(ast, tac_minus);
 		  
 		case 47: //(/)
-			printf("Divide found.\n");
 			return arithmetic_tac(ast, tac_divide);
 		  
 		case 42: //(*)
-			printf("Multiplication found.\n");
 			return arithmetic_tac(ast, tac_multiply);
 		case 37: //%
-		  	printf("Modulo found.\n");
 			return arithmetic_tac(ast, tac_mod);
 
-		case 59: //;
-			printf("Sequence found.\n");
-			TAC* left_seq = mmc_icg(ast->left);
+		case 59:; //;
+			TAC* left_seq = mmc_icg(ast->left); // Left block
 			TAC* right_seq = mmc_icg(ast->right); // Right block
 			attach_tac(left_seq, right_seq);
 			return left_seq;
 
-		case ASSIGNMENT: // ~
-			printf("Assignment found.\n");
+		case ASSIGNMENT:; // ~
+			// Like the interpreter, we must account for function declarations
 			if (ast->left->type == ASSIGNMENT  || ast->left->type == 68){
 				TAC* left_func = mmc_icg(ast->left);
 				TAC* right_func = mmc_icg(ast->right);
 				attach_tac(left_func, right_func);
 				return left_func;
-			} else {
+			} else { // Or an assignment to a variable
 				if (ast->right->type == 61){ // if equals
 					return mmc_icg(ast->right);
 				} else {
+					// Declare variable TAC, will be used in conjuction with an (=) in the AST
 					TAC* variable_declare = new_tac(tac_declare, NULL, NULL, NULL);
 					return variable_declare;
 				}
 			}
 
-		case 61: // =
-			printf("Equals found.\n");
-			
+		case 61:; // =
+			// Load a value into a temp, then put it into a word
 			TAC* variable = mmc_icg(ast->left);
 			TAC* load = mmc_icg(ast->right);
 			TAC* assign = new_tac(tac_store_word, load->args.tokens.dst, NULL, variable->args.tokens.src1);
@@ -246,13 +233,12 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
 			attach_tac(load, assign);
 			return variable;
 
-		case IDENTIFIER:
-			printf("Identifier found.\n");
+		case IDENTIFIER:;
+			// Load a word into a temp reg
 
 			TOKEN* reg_id = (TOKEN*)malloc(sizeof(TOKEN));
 			return new_tac(tac_load_word, (TOKEN*)ast, NULL, reg_id);
-		case IF:
-			printf("If found.\n");
+		case IF:;
 			TAC* condition = mmc_icg(ast->left);
 			TAC* condition_type = end_tac(condition); // Get the boolean equality operator
 			TOKEN* label = generate_label();
@@ -307,6 +293,7 @@ TAC* mmc_icg(NODE* ast) // NOTE: With jumps, we need to determine where we need 
   	}
 }
 
+// Create a new basic block
 BB* new_basic_block(TAC* tac){
 	BB* bb = (BB*)malloc(sizeof(BB));
 	bb->leader = tac;
@@ -314,6 +301,7 @@ BB* new_basic_block(TAC* tac){
 	return bb;
 }
 
+// Generate a graph of basic blocks that splits up the TAC depending on certain condition defined in the spec
 BB* block_graph_gen(TAC* tac){
 	if (tac != NULL && (tac->op == tac_proc || tac->op == tac_label)){
 		BB* bb = new_basic_block(tac);
@@ -326,6 +314,7 @@ BB* block_graph_gen(TAC* tac){
 	}
 }
 
+// Print out the blocks seperately
 void print_blocks(BB* bb){
 	int x = 0;
 	
@@ -343,6 +332,7 @@ void print_blocks(BB* bb){
 	}
 }
 
+// Optimise a block
 void optimise_block(BB* bb){
 	TAC* leader = bb->leader;
 	STACK* stack = new_stack();
@@ -353,7 +343,9 @@ void optimise_block(BB* bb){
 			TAC* load2 = (TAC*)pop(stack);
 			TAC* load1 = (TAC*)pop(stack);
 			// If the values of the arguments in the loads before the add are the same, then we only need one load.
-			if (load1->op == tac_load && load2->op == tac_load && load1->args.tokens.dst->value == load2->args.tokens.dst->value){
+			if (load1->op == tac_load && 
+				load2->op == tac_load && 
+				load1->args.tokens.dst->value == load2->args.tokens.dst->value){
 				add->args.tokens.src2 = add->args.tokens.src1;
 				free(load2);
 				load1->next = add;
@@ -372,6 +364,7 @@ void optimise_block(BB* bb){
 	mmc_print_ic(leader);
 }
 
+// Print a single TAC for debugging purposes
 void print_single_tac(TAC* i){
 	if (i->op == tac_plus || i->op == tac_minus || i->op == tac_divide || i->op == tac_multiply || i->op == tac_mod){
 		printf("%s %s, %s, %s\n",
@@ -415,6 +408,7 @@ void print_single_tac(TAC* i){
 	}
 }
 
+// Print out all the TACs
 void mmc_print_ic(TAC* i)
 {
   	for(;i!=NULL;i=i->next)

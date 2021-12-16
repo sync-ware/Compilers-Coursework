@@ -97,6 +97,7 @@ extern NODE* yyparse(void);
 extern NODE* ans;
 extern void init_symbtable(void);
 
+// Look for a specific argument
 int findArg(int argc, char** argv, char* elem)
 {
 	for(int x = 1; x < argc; x++) {
@@ -107,6 +108,7 @@ int findArg(int argc, char** argv, char* elem)
 	return 0;
 }
 
+// Write an MC sequence to a .asm file
 void write_to_file(MC* i){
 	FILE* fptr;
 	fptr = fopen("output.asm", "w");
@@ -128,32 +130,31 @@ int main(int argc, char** argv)
 	tree = ans;
 	printf("parse finished with %p\n", tree);
 	print_tree(tree);
-	if (findArg(argc, argv, "-i")) {
-		FRAME* frame = new_frame();
-		printf("\n");
-    
-		VALUE* interpretation = interpret(tree, frame);
-    TOKEN* main = new_token(mmcINT);
-    main->lexeme = malloc(sizeof(char)*5);
-    main->lexeme = "main";
-    VALUE* status = lexical_call_method(main, NULL, frame);
-    //printf("Status achieved\n");
+	printf("\n");
+	if (findArg(argc, argv, "-i")) { // Execute the interpreter
+		FRAME* frame = new_frame(); // Establish a new frame
+		VALUE* interpretation = interpret(tree, frame); // Begin interpretation
+		TOKEN* main = new_token(mmcINT); // Create a main token
+		main->lexeme = malloc(sizeof(char)*5);
+		main->lexeme = "main";
+		VALUE* status = lexical_call_method(main, NULL, frame); // Call main
+		printf("Interpreter output:\n");
 		printf("Program exited with status code %d.\n\n", status->v.integer);
 	}
-	if (findArg(argc, argv, "-t")) {
-		TAC* tac = mmc_icg(tree);
+	if (findArg(argc, argv, "-t")) { // Execute the TAC generator
+		TAC* tac = mmc_icg(tree); //Begin TAC
+		printf("TAC output:\n");
+		mmc_print_ic(tac); // Print out the TAC
 		printf("\n");
-		mmc_print_ic(tac);
-    printf("\n");
-    BB* bb = block_graph_gen(tac);
-    print_blocks(bb);
-    //optimise_block(bb);
+		BB* bb = block_graph_gen(tac); // Generate basic blocks
+		//print_blocks(bb);
+    	//optimise_block(bb); // Run optimisations, disabled for now
 
 		if (findArg(argc, argv, "-a")) { //Assembly
-			printf("\n");
-			MC* mc = mmc_mcg(tac);
-			mmc_print_mc(mc);
-			write_to_file(mc);
+			printf("MC output:\n");
+			MC* mc = mmc_mcg(tac); // Generate MC from TAC
+			mmc_print_mc(mc); // Print out the MC
+			write_to_file(mc); // Write MC to file
 		}
 	}
 
