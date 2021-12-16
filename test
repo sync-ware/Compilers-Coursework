@@ -1,12 +1,7 @@
-int f(){
-	if (f() == 1){
-		return 1;
-	}
-}
-
 int main(void)
 {   
-	if (1){
+	int x = 1+1/2;
+	if (x == 1){
 		return 1;
 	} else {
 		return 0;

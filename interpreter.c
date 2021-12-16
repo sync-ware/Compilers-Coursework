@@ -23,8 +23,7 @@ BINDING* new_binding(NODE* name, VALUE* val, BINDING* next){
 BINDING* gen_bindings(NODE* ids, NODE* args, FRAME* frame, BINDING* bindings){
 	if (ids != NULL && ids->left->type != VOID){
 		
-		if (ids->type != 44){
-			//printf("Generating bindings\n");
+		if (ids->type != 44){ //( , )
 			bindings = new_binding(ids->right->left, interpret(args, frame), bindings);
 		} else {
 			bindings = gen_bindings(ids->left, args->left, frame, bindings);
@@ -45,7 +44,6 @@ FRAME* extend_frame(FRAME* env, NODE* ids, NODE* args){
 }
 
 VALUE* lexical_call_method(TOKEN* name, NODE* args, FRAME* frame){
-	//printf("Calling: %s\n", name->lexeme);
 	CLOSURE* f = (CLOSURE*)get_variable(name, frame)->v.function;
 	FRAME* new_env = extend_frame(frame, f->args, args);
 	new_env->next = f->frame;
@@ -69,13 +67,11 @@ VALUE* div_values(VALUE* left_operand, VALUE* right_operand){
 
 VALUE* mul_values(VALUE* left_operand, VALUE* right_operand){
   int calculation = left_operand->v.integer * right_operand->v.integer;
-  //free(right_operand);
   return new_value(mmcINT, (void*)&calculation);
 }
 
 VALUE* mod_values(VALUE* left_operand, VALUE* right_operand){
   int calculation = left_operand->v.integer % right_operand->v.integer;
-  //free(right_operand);
   return new_value(mmcINT, (void*)&calculation);
 }
 
@@ -128,7 +124,6 @@ VALUE* get_variable(TOKEN* var, FRAME* frame){
 	while (frame != NULL){
 		BINDING* bindings = frame->binding;
 		while (bindings != NULL){
-			//printf("Var: %s, Binding: %s, Result: %d\n",var->lexeme, bindings->name->lexeme, strcmp(bindings->name->lexeme, var->lexeme));
 			if (strcmp(bindings->name->lexeme, var->lexeme) == 0){
 				return bindings->val;
 			}
@@ -295,7 +290,6 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 			}
 		case ELSE:
 			//printf("Else found\n");
-
 			return interpret(tree->right, frame);
 		
 		case EQ_OP: // ==
@@ -330,24 +324,16 @@ VALUE* interpret(NODE *tree, FRAME* frame)
 					printf("%s", string_value->v.string);
 					return NULL;
 				} else if (strcmp(func_name->lexeme, "read_int") == 0) {
-					//char line[1024];
 					int status, read_value = 0;
-					//printf("Read found: ");
-					
-					
 					do{
 						status = scanf("%d", &read_value);
-						printf("%d\n", status);
 						int ch; //variable to read data into
 						while((ch = getc(stdin)) != EOF && ch != '\n');
 					}
 					while (status == 0);
-					
-					//int read_value = atoi(line);
 
 					return new_value(mmcINT, (void*)&read_value);
 				} else {
-					//printf("Function variable returned: %s\n", func_name->lexeme);
 					return lexical_call_method(func_name, tree->right, frame);
 				}
 			} else {

@@ -26,7 +26,6 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 	char address_num[8];
   	switch (op) {
 		case tac_load:
-			//ans->args.tokens.dst = dst;
 			dst->lexeme = (char*)malloc(4*sizeof(char));
 
 			if (availableAddresses > 0){
@@ -38,8 +37,6 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 			return ans;
 
 		case tac_load_word:
-			//ans->args.tokens.src1 = src1;
-			//ans->args.tokens.dst = dst;
 			dst->lexeme = (char*)malloc(4*sizeof(char));
 
 			if (availableAddresses > 0){
@@ -105,6 +102,7 @@ TAC* arithmetic_tac(NODE* ast, int op){
 
 int count_args(NODE* args){
 	int count = 0;
+	//printf("No args\n");
 	if (args == NULL || args->left->type == VOID){
 		return 0;
 	} else if (args->type == ASSIGNMENT){
@@ -117,9 +115,9 @@ int count_args(NODE* args){
 }
 
 void generate_args(NODE* args, STACK* stack){
-	if (args->type == ASSIGNMENT){
+	if (args != NULL && args->type == ASSIGNMENT){
 		push(stack, (void*)((TOKEN*)args->right->left)->lexeme);
-	} else if (args->type == 44){
+	} else if (args != NULL && args->type == 44){
 		generate_args(args->left, stack);
 		generate_args(args->right, stack);
 	}
@@ -345,7 +343,6 @@ void print_blocks(BB* bb){
 	}
 }
 
-//TODO: Optimise with seperate passes.
 void optimise_block(BB* bb){
 	TAC* leader = bb->leader;
 	STACK* stack = new_stack();
@@ -367,17 +364,6 @@ void optimise_block(BB* bb){
 				push(stack, (void*)load2);
 				push(stack, (void*)i);
 			}
-			// push(add_stack, i);
-			// if (add_stack->top > 0){
-			// 	TAC* add2 = (TAC*)pop(add_stack);
-			// 	TAC* add1 = (TAC*)pop(add_stack);
-			// 	if (add2->args.tokens.src1->value == add1->args.tokens.src1->value && add2->args.tokens.src2->value == add1->args.tokens.src2->value){
-			// 		TAC* move_tac = new_tac(tac_move, add1->args.tokens.dst, NULL, add2->args.tokens.dst);
-			// 		TAC* prev_tac = (TAC*)pop(stack);
-			// 		move_tac->next = prev_tac->next;
-			// 		prev_tac->next = move_tac;
-			// 	}
-			// }
 		} else if (i->op != tac_proc && i->op != tac_proc_end){
 			push(stack, (void*)i);
 		}
@@ -413,7 +399,7 @@ void print_single_tac(TAC* i){
 	} else if (i->op == tac_load_word){
 		printf("%s %s, %s\n", tac_ops[i->op], i->args.tokens.src1->lexeme, i->args.tokens.dst->lexeme);
 	} else if (i->op == tac_proc_end){
-		printf("%s\n", tac_ops[i->op]);
+		printf("%s\n\n", tac_ops[i->op]);
 	} else if(i->op == tac_equality){
 		printf("%s %s == %s %s\n", tac_ops[i->op], i->args.tokens.src1->lexeme, i->args.tokens.src2->lexeme, i->args.tokens.dst->lexeme);
 	} else if (i->op == tac_n_equality){
