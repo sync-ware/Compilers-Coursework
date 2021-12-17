@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-int availableAddresses = 16;
+int availableAddresses = 9;
 int label_count = 1;
 
 // Create a new TAC instruction based on the arguments given
@@ -25,6 +25,9 @@ TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst){
 	ans->args.tokens = tac_tokens;
 	char address[4] = "$t";
 	char address_num[8];
+	if (availableAddresses == 0){
+		availableAddresses = 9;
+	}
   	switch (op) {
 		case tac_load:
 			dst->lexeme = (char*)malloc(4*sizeof(char));
@@ -66,15 +69,34 @@ TOKEN* generate_label(){
 TAC* new_proc_tac(int op, TOKEN* name, STACK* arg_stack){
 	TAC* ans = (TAC*)malloc(sizeof(TAC));
 	ans->op = op;
-	char* arg_names[arg_stack->size];
+	char** arg_names = malloc(sizeof(char*)*arg_stack->size);
+	TAC* curr_tac = ans;
 	for(int i = 0; i < arg_stack->size; i++){
 		arg_names[i] = (char*)pop(arg_stack);
+		TOKEN* var = (TOKEN*)malloc(sizeof(TOKEN));
+		var->lexeme = arg_names[i];
+
+		// Store the value into an argument register
+		TOKEN* arg = (TOKEN*)malloc(sizeof(TOKEN));
+		arg->lexeme = malloc(sizeof(char)*4);
+		sprintf(arg->lexeme, "$a%d", i);
+		TAC* sw = new_tac(tac_store_word, arg, NULL, var);
+		curr_tac->next = sw;
+		curr_tac = sw;
 	}
-	CALL call = {
-		name,
-		arg_stack->size,
-		arg_names
-	};
+	CALL* call = (CALL*)malloc(sizeof(CALL));
+	call->arg_names = arg_names;
+	call->arity = arg_stack->size;
+	call->name = name;
+	ans->args.call = call;
+	return ans;
+}
+
+// End proc TAC, shares properties with the Proc TAC
+TAC* new_end_proc_tac(int op, CALL* call)
+{
+	TAC* ans = (TAC*)malloc(sizeof(TAC));
+	ans->op = op;
 	ans->args.call = call;
 	return ans;
 }
@@ -112,19 +134,6 @@ TAC* arithmetic_tac(NODE* ast, int op){
 	return left_operand;
 }
 
-// int count_args(NODE* args){
-// 	int count = 0;
-// 	if (args == NULL || args->left->type == VOID){
-// 		return 0;
-// 	} else if (args->type == ASSIGNMENT){
-// 		return 1;
-// 	} else if (args->type == 44){
-// 		count += count_args(args->left);
-// 		count += count_args(args->right);
-// 		return count;
-// 	}
-// }
-
 // Process the arguments of a function and place them on a stack
 void generate_args(NODE* args, STACK* stack){
 	if (args != NULL && args->type == ASSIGNMENT){
@@ -147,15 +156,24 @@ TAC* conditonal_tac(NODE* ast, int type){
 	return left_op;
 }
 
+// Count the number of arg resgisters used
+int args_count = 0;
+
 // TAC generator main
 TAC* mmc_icg(NODE* ast)
 {
   	switch (ast->type) {
 		case 68:; //D
 			TAC* proc_def = mmc_icg(ast->left);
+			args_count = 0; // Reset arg count for new function
 			TAC* proc_body = mmc_icg(ast->right);
-			proc_def->next = proc_body;
-			TAC* end_proc = new_tac(tac_proc_end, NULL, NULL, NULL);
+			attach_tac(proc_def, proc_body);
+			// End PROC requires details so that we can restore the stack in the MC
+			TAC* end_proc = new_end_proc_tac(tac_proc_end, proc_def->args.call);
+			// Main has a different end tac because MC doesn't do anything special with it
+			if (strcmp(proc_def->args.call->name->lexeme, "main") == 0){
+				end_proc = new_tac(tac_main_end, NULL, NULL, NULL);
+			}
 			attach_tac(proc_body, end_proc);
 			return proc_def;
 		case 100: //d
@@ -167,7 +185,6 @@ TAC* mmc_icg(NODE* ast)
 			generate_args(ast->right, stack);
 			// Proc defenition
 			TAC* proc = new_proc_tac(tac_proc, (TOKEN*)ast->left->left, stack);
-			free_stack(stack);
 			return proc;
 		case VOID:;
 			// Not used, but indicates that we found a VOID
@@ -179,6 +196,7 @@ TAC* mmc_icg(NODE* ast)
 			TAC* tac_process_to_return = mmc_icg(ast->left);
 			// Temp register to return, we will just translate that as a load
 			TAC* ret = new_tac(tac_return, NULL, NULL, tac_process_to_return->args.tokens.dst);
+			
 			attach_tac(tac_process_to_return, ret);
 			return tac_process_to_return;
 
@@ -286,7 +304,49 @@ TAC* mmc_icg(NODE* ast)
 
 		case 60:
 			return conditonal_tac(ast, tac_lt_op);
+		case APPLY:;
+			TAC* id = mmc_icg(ast->left);
+			TOKEN* ret_v = (TOKEN*)malloc(sizeof(TOKEN));
+			ret_v->lexeme = malloc(sizeof(char)*5);
+			ret_v->lexeme = "$v0";
+			// We need to store the register where the value of the apply should go,
+			// this is for other TACs
+			TAC* apply = new_tac(tac_apply, id->args.tokens.src1, NULL, ret_v);
+			
+			TAC* arg_values = mmc_icg(ast->right);
 
+			apply->next = arg_values;
+			// Call function
+			if (ast->right->type != 44){ // If just a single argument, we load it in a0
+				TOKEN* arg = (TOKEN*)malloc(sizeof(TOKEN));
+				arg->lexeme = malloc(sizeof(char)*5);
+				sprintf(arg->lexeme, "$a%d", args_count++);
+				TAC* move_result = new_tac(tac_move, arg_values->args.tokens.dst, NULL, arg);
+				attach_tac(arg_values, move_result);
+			}
+
+			
+			TAC* call = new_tac(tac_call, NULL, NULL, id->args.tokens.src1);
+			attach_tac(arg_values, call);
+			return apply;
+		case 44:; // (,)
+			// Process multiple arguments for functions
+			TAC* left_args = mmc_icg(ast->left);
+			TOKEN* arg1 = (TOKEN*)malloc(sizeof(TOKEN));
+			arg1->lexeme = malloc(sizeof(char)*5);
+			sprintf(arg1->lexeme, "$a%d", args_count++);
+			TAC* move_result_left = new_tac(tac_move, left_args->args.tokens.dst, NULL, arg1);
+			attach_tac(left_args, move_result_left);
+
+			TAC* right_args = mmc_icg(ast->right);
+			TOKEN* arg2 = (TOKEN*)malloc(sizeof(TOKEN));
+			arg2->lexeme = malloc(sizeof(char)*5);
+			sprintf(arg2->lexeme, "$a%d", args_count++);
+			TAC* move_result_right = new_tac(tac_move, right_args->args.tokens.dst, NULL, arg2);
+			attach_tac(right_args, move_result_right);
+
+			attach_tac(left_args, right_args);
+			return left_args;
 		default:
 			printf("unknown type code %d (%p) in mmc_icg\n",ast->type,ast);
 			return NULL;
@@ -377,22 +437,26 @@ void print_single_tac(TAC* i){
 		tac_ops[i->op],
 		i->args.tokens.dst->lexeme,
 		i->args.tokens.dst->value);
-	} else if (i->op == tac_return || i->op == tac_label || i->op == tac_goto){
+	} else if (i->op == tac_return || i->op == tac_label || i->op == tac_goto || i->op == tac_call){
 		printf("%s %s\n",
 		tac_ops[i->op],
 		i->args.tokens.dst->lexeme);
-	}else if (i->op == tac_store_word || i->op == tac_move){
+	} else if (i->op == tac_apply) {
+		printf("%s %s %s\n", tac_ops[i->op], i->args.tokens.src1->lexeme, i->args.tokens.dst->lexeme);
+	} else if (i->op == tac_store_word || i->op == tac_move){
 		if (i->args.tokens.src1 != NULL){
 			printf("%s %s, %s\n", tac_ops[i->op], i->args.tokens.src1->lexeme, i->args.tokens.dst->lexeme);
 		} else {
 			printf("%s %d, %s\n", tac_ops[i->op], 0, i->args.tokens.dst->lexeme);
 		}
 	} else if (i->op == tac_proc){
-		printf("%s %s %d\n", tac_ops[i->op], i->args.call.name->lexeme, i->args.call.arity);
+		printf("%s %s %d\n", tac_ops[i->op], i->args.call->name->lexeme, i->args.call->arity);
 	} else if (i->op == tac_load_word){
 		printf("%s %s, %s\n", tac_ops[i->op], i->args.tokens.src1->lexeme, i->args.tokens.dst->lexeme);
-	} else if (i->op == tac_proc_end){
+	} else if (i->op == tac_proc_end || i->op == tac_main_end){
 		printf("%s\n\n", tac_ops[i->op]);
+	} else if (i->op == tac_arg){
+		printf("%s %s, %d\n", tac_ops[i->op], i->args.tokens.src1->lexeme, i->args.tokens.dst->value);
 	} else if(i->op == tac_equality){
 		printf("%s %s == %s %s\n", tac_ops[i->op], i->args.tokens.src1->lexeme, i->args.tokens.src2->lexeme, i->args.tokens.dst->lexeme);
 	} else if (i->op == tac_n_equality){

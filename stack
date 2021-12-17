@@ -1,0 +1,51 @@
+addi $sp,$sp,-4		# Adjust stack pointer
+sw $t0,0($sp)		# Save $s0
+addi $sp,$sp,-4		# Adjust stack pointer
+sw $t1,0($sp)	
+addi $sp,$sp,-4		# Adjust stack pointer
+sw $t2,0($sp)
+addi $sp,$sp,-4		# Adjust stack pointer
+sw $t3,0($sp)
+addi $sp,$sp,-4		# Adjust stack pointer
+sw $t4,0($sp)
+addi $sp,$sp,-4		# Adjust stack pointer
+sw $t5,0($sp)
+addi $sp,$sp,-4		# Adjust stack pointer
+sw $t6,0($sp)
+addi $sp,$sp,-4		# Adjust stack pointer
+sw $t7,0($sp)
+addi $sp,$sp,-4		# Adjust stack pointer
+sw $t8,0($sp)
+addi $sp,$sp,-4		# Adjust stack pointer
+sw $t9,0($sp)
+addi $sp,$sp,-4		# Adjust stack pointer
+sw $ra,0($sp)
+move $s0, $a0
+addi $sp,$sp,-4		# Adjust stack pointer
+sw $s0,0($sp)
+
+lw $s0,0($sp)
+sw $s0, x
+addi $sp,$sp,4	# Adjust stack pointer
+lw $ra,0($sp)		# Restore $s1
+addi $sp,$sp,4		# Adjust stack pointer
+lw $t9,0($sp)		# Restore $s1
+addi $sp,$sp,4		# Adjust stack pointer
+lw $t8,0($sp)		# Restore $s1
+addi $sp,$sp,4		# Adjust stack pointer
+lw $t7,0($sp)		# Restore $s1
+addi $sp,$sp,4		# Adjust stack pointer
+lw $t6,0($sp)		# Restore $s1
+addi $sp,$sp,4		# Adjust stack pointer
+lw $t5,0($sp)		# Restore $s1
+addi $sp,$sp,4		# Adjust stack pointer
+lw $t4,0($sp)		# Restore $s1
+addi $sp,$sp,4		# Adjust stack pointer
+lw $t3,0($sp)		# Restore $s1
+addi $sp,$sp,4		# Adjust stack pointer
+lw $t2,0($sp)		# Restore $s1
+addi $sp,$sp,4		# Adjust stack pointer
+lw $t1,0($sp)		# Restore $s1
+addi $sp,$sp,4		# Adjust stack pointer
+lw $t0,0($sp)		# Restore $s1
+addi $sp,$sp,4		# Adjust stack pointer

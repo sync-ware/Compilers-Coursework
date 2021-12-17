@@ -40,7 +40,7 @@ int find_word(char* words[], char* word, int length){
 	return 0;
 }
 
-// Attach to MC blocks
+// Attach two MC blocks
 void attach_ins(MC* left, MC* right){
 	if (left->next == NULL){
 		left->next = right;
@@ -103,20 +103,39 @@ MC* mmc_mcg(TAC* i){
 			return ins;
 
 		case tac_return:
-			// char str_ret[50] = "move $v0, ";
-			// strncat(str_ret, i->dst->lexeme, strlen(i->dst->lexeme)+1);
-			// MC* ins_ret = new_mci(str_ret);
-			// return ins_ret;
+			strncat(str_ins, "move $v0, ", 11);
+			strncat(str_ins, i->args.tokens.dst->lexeme, strlen(i->args.tokens.dst->lexeme)+1);
 			
-			return mmc_mcg(i->next); // Temporary
+			ins = new_mci(str_ins);
+			ins->next = mmc_mcg(i->next);
+			return ins;
 
 		case tac_proc:;
 			char str_proc[10] = "";
-			strncat(str_proc, i->args.call.name->lexeme, strlen(i->args.call.name->lexeme)+1);
+			strncat(str_proc, i->args.call->name->lexeme, strlen(i->args.call->name->lexeme)+1);
 			strncat(str_proc, ":", 2);
 			ins = new_mci(str_proc);
-			ins->next = mmc_mcg(i->next);
-			return ins;
+			
+			// Add variables and return address to stack
+			if (strcmp(i->args.call->name->lexeme, "main") != 0){
+				MC* curr = ins;
+				for(int x = 0; x < i->args.call->arity; x++){
+					MC* mc_stack = new_mci("addi $sp,$sp,-4");
+					curr->next = mc_stack;
+					char str_store[40];
+					sprintf(str_store, "move $s%d, $a%d\nsw $s%d,0($sp)", x, x, x);
+					curr = new_mci(str_store);
+					mc_stack->next = curr;
+				}
+				MC* ret_addr = new_mci("addi $sp,$sp,-4\nsw $ra,0($sp)");
+				curr->next = ret_addr;
+				ret_addr->next = mmc_mcg(i->next);
+				return ins;
+			} else {
+				// Don't worry about loading on to the stack with main
+				ins->next = mmc_mcg(i->next);
+				return ins;
+			}
 
 		case tac_load_word:;
 			if (find_word(words, i->args.tokens.src1->lexeme, word_count) == 0){
@@ -222,8 +241,58 @@ MC* mmc_mcg(TAC* i){
 			return ins;
 
 		case tac_proc_end:
-			return new_mci("");
+			ins = new_mci("lw $ra,0($sp)\naddi $sp,$sp,4"); // Start with storing the return address on the stack
+			
+			MC* curr_ret = ins;
+			// Load all the variables used and place them on the stack too
+			for(int x = i->args.call->arity-1; x >=0 ; x--){
+				char str_retrieve[50] = "";
+				sprintf(str_retrieve, "lw $s%d,0($sp)\nsw $s%d, ", x, x);
+				
+				strncat(str_retrieve, i->args.call->arg_names[x], strlen(i->args.call->arg_names[x])+1);
+				strncat(str_retrieve, "\naddi $sp,$sp,4", 16);
+				MC* mc_retrieve = new_mci(str_retrieve);
+				curr_ret->next = mc_retrieve;
+				curr_ret = mc_retrieve;
+			}
+			
+			MC* jump_return = new_mci("jr $ra"); // Jump back to return address
+			curr_ret->next = jump_return;
+			jump_return->next = mmc_mcg(i->next);
+			return ins;
 
+		case tac_main_end:
+			return mmc_mcg(i->next); // skip
+
+		case tac_arg:
+			strncat(str_ins, "li ", 4);
+			strncat(str_ins, i->args.tokens.src1->lexeme, strlen(i->args.tokens.src1->lexeme)+1);
+			strncat(str_ins, ", ", 3);
+			char raw_val_arg[8]; 
+			sprintf(raw_val_arg, "%d", i->args.tokens.dst->value);
+			strncat(str_ins, raw_val_arg, 9);
+			ins = new_mci(str_ins);
+			ins->next = mmc_mcg(i->next);
+			return ins;
+
+		case tac_call:
+			strncat(str_ins, "jal ", 5);
+			strncat(str_ins, i->args.tokens.dst->lexeme, strlen(i->args.tokens.dst->lexeme)+1);
+			ins = new_mci(str_ins);
+			ins->next = mmc_mcg(i->next);
+			return ins;
+
+		case tac_move:
+			strncat(str_ins, "move ", 6);
+			strncat(str_ins, i->args.tokens.dst->lexeme, strlen(i->args.tokens.dst->lexeme)+1);
+			strncat(str_ins, ", ", 3);
+			strncat(str_ins, i->args.tokens.src1->lexeme, strlen(i->args.tokens.src1->lexeme)+1);
+
+			ins = new_mci(str_ins);
+			ins->next = mmc_mcg(i->next);
+			return ins;
+		case tac_apply:
+			return mmc_mcg(i->next);
 		default:
 			printf("unknown type code %d (%p) in mmc_mcg\n",i->op,i);
 		return NULL;

@@ -5,7 +5,7 @@
 #include "nodes.h"
 #include "stack.h"
 
-#define MAX_ADDRESSES 16
+#define MAX_ADDRESSES 9
 
 enum tac_op {
     tac_noop = 0,
@@ -31,7 +31,10 @@ enum tac_op {
     tac_gt_op = 20,
     tac_lt_op = 21,
     tac_label = 22,
-    tac_goto = 23
+    tac_goto = 23,
+    tac_call = 24,
+    tac_main_end = 25,
+    tac_apply = 26
 };
 
 static char* tac_ops[] = {
@@ -47,7 +50,7 @@ static char* tac_ops[] = {
     "DECLARE", 
     "VARIABLE",
     "PROC",
-    "ARG",
+    "LOAD ARG",
     "END PROC",
     "LOAD WORD",
     "MOVE",
@@ -58,7 +61,10 @@ static char* tac_ops[] = {
     "IF",
     "IF",
     "LABEL",
-    "GO TO"
+    "GO TO",
+    "CALL",
+    "END MAIN",
+    "APPLY"
 };
 
 typedef struct call{
@@ -79,7 +85,7 @@ typedef struct tac_tokens{
 
 typedef struct tac {
     int op ;
-    union {BLOCK block; CALL call; TAC_TOKENS tokens;} args;
+    union {BLOCK block; CALL* call; TAC_TOKENS tokens;} args;
     struct tac* next;
 } TAC;
 
@@ -88,21 +94,14 @@ typedef struct bb {
     struct bb* next;
 } BB;
 
-// typedef struct ar {
-//     unsigned char
-//     fp,
-//     pc,
-//     sl,
-//     param[],
-//     local[],
-//     tmp[];
-// } AR;
-
 TAC* new_tac(int op, TOKEN* src1, TOKEN* src2, TOKEN* dst);
+TOKEN* generate_label();
 TAC* new_proc_tac(int op, TOKEN* name, STACK* stack);
+TAC* new_end_proc_tac(int op, CALL* call);
 void attach_tac(TAC* left, TAC* right);
+TAC* end_tac(TAC* start);
 TAC* arithmetic_tac(NODE* ast, int op);
-int count_args(NODE* args);
+void generate_args(NODE* args, STACK* stack);
 TAC* conditonal_tac(NODE* ast, int type);
 TAC* mmc_icg(NODE* ast);
 void mmc_print_ic(TAC* i);

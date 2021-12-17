@@ -86,6 +86,7 @@ VALUE* declare_variable(TOKEN* var, FRAME* frame){
 	BINDING* new = (BINDING*)malloc(sizeof(BINDING));
 	if (new != 0){
 		VALUE* value = (VALUE*)malloc(sizeof(VALUE));
+		// Assume it's an integer
 		value->type = mmcINT;
 		value->v.integer = var->value;
 		new->name = var;
@@ -112,6 +113,7 @@ VALUE* declare_function(NODE* func, FRAME* frame){
 		new->val = value;
 		new->next = bindings;
 		frame->binding = new;
+		// Return the function name
 		return new_value(mmcSTRING, (void*)&token->lexeme);
 	}
 }
@@ -126,7 +128,7 @@ CLOSURE* new_closure(NODE* func, FRAME* frame){
 	return closure;
 }
 
-// Retrieve a variabel from the frame bindings
+// Retrieve a variable from the frame bindings
 VALUE* get_variable(TOKEN* var, FRAME* frame){
 	while (frame != NULL){
 		BINDING* bindings = frame->binding;
@@ -138,7 +140,6 @@ VALUE* get_variable(TOKEN* var, FRAME* frame){
 		}
 		frame = frame->next;
 	}
-	//printf("Variable not found\n");
 	return NULL;
 }
 
@@ -147,6 +148,7 @@ VALUE* new_value(int type, void* value){
 	VALUE* val = (VALUE*)malloc(sizeof(VALUE));
 	val->type = type;
 	val->is_func_ret = 0;
+	// Integers and Booleans have type int
 	if (type == mmcINT || type == mmcBOOL){
 		val->v.integer = *((int*)value);
 	} else if (type == mmcSTRING){

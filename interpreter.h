@@ -39,6 +39,7 @@ typedef struct closure {
 
 FRAME* new_frame();
 BINDING* new_binding(NODE* name, VALUE* val, BINDING* next);
+BINDING* gen_bindings(NODE* ids, NODE* args, FRAME* frame, BINDING* bindings);
 FRAME* extend_frame(FRAME* env, NODE* ids, NODE* args);
 VALUE* lexical_call_method(TOKEN* name, NODE* args, FRAME* frame);
 CLOSURE* new_closure(NODE* func, FRAME* frame);
@@ -51,6 +52,7 @@ VALUE* mod_values(VALUE* left_operand, VALUE* right_operand);
 
 VALUE* declare_variable(TOKEN* var, FRAME* frame);
 VALUE* declare_function(NODE* func, FRAME* frame);
+CLOSURE* new_closure(NODE* func, FRAME* frame);
 VALUE* get_variable(TOKEN* var, FRAME* frame);
 VALUE* new_value(int type, void* value);
 VALUE* equality_calculator(int type, NODE* tree, FRAME* frame);
